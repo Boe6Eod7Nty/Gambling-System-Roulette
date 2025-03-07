@@ -2755,13 +2755,6 @@ function RotatePoint(center, point, angle) --rotates {x,y} point around {x,y} ce
     return {x=x,y=y}
 end
 
-function SpinWheel()
-    roulette_spinning = true
-    ball_spinning = true
-
-    Game.GetPlayer():PlaySoundEvent("q303_hotel_casino_roulette_ball_start")
-end
-
 function RepeatBets() --for each in previous bets, place bet into current bets
     previousBetAvailable = false
     currentlyRepeatingBets = true
@@ -2862,7 +2855,10 @@ function MainMenuUI() -- original function code by keanuwheeze
         function() --"Spin Roulette Wheel"
             --DuelPrint("Choice 3 used")
             interactionUI.hideHub()
-            SpinWheel()
+            roulette_spinning = true
+            ball_spinning = true
+        
+            Game.GetPlayer():PlaySoundEvent("q303_hotel_casino_roulette_ball_start")
         end,
         function() --"Buy Chips"
             --DuelPrint("Choice 4 used")
