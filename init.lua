@@ -1,4 +1,5 @@
--- v1.0.13
+-- Roulette v1.0.13
+-- init.lua v1.1.0
 --===================
 --CODE BY Boe6
 --DO NOT DISTRIBUTE
@@ -822,10 +823,14 @@ function SetRotateEnt(idName, rpy) --teleport an entity to specified rotation at
     Game.GetTeleportationFacility():Teleport(entity, currentPos, newRot)
 end
 
-function DuelPrint(string) --prints to both CET console and local .log file
+function DualPrint(string) --prints to both CET console and local .log file
     if not string then return end
-    print('[Gambling System]' .. string)
-    spdlog.error('[Gambling System]' .. string)
+    print('[Gambling System] ' .. string)
+    spdlog.error('[Gambling System] ' .. string)
+end
+
+function DuelPrint(string) --prints to both CET console and local .log file
+    DualPrint(string)
 end
 
 function DebugPlayerPile()
