@@ -96,15 +96,6 @@ local tableCenterPoint = {x=-1033.34668, y=1340.00183, z=6.21331358} --default v
 local playerPlayingPosition = {x=-1034.435, y=1340.8057, z=5.278}
 local tableBoardOrigin = {x=-1033.7970, y=1342.182833333, z=6.310} --default value (hoohbarold)
 local allTables = {
-    --[[
-    { -- saved for posterity, original dev table location. Incompatible with newer ho-oh bar table
-        id = 'hoohbarold',
-        initialized = false,
-        loaded = false,
-        SpinnerCenterPoint = {x=-1033.34668, y=1340.00183, z=6.21331358},
-        tableRotation = -89.7887983
-    },
-    ]]--
     {
         id = 'hoohbar',
         initialized = false,
