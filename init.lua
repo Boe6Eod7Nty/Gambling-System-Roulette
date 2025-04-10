@@ -1748,10 +1748,6 @@ function SearchStuckExit(localPile, localstackSearchCurrent, localstackSearchPre
     local mediumSearched = MediumSearchAggressive(localPile, {x=localstackSearchCurrent.x, y=localstackSearchCurrent.y, z=localstackSearchCurrent.z})
     if mediumSearched[2] == true then return mediumSearched end
 
-    --DuelPrint('=h stackSearchOld x: '..localstackSearchOld.x..' y: '..localstackSearchOld.y..' z: '..localstackSearchOld.z)
-    --DuelPrint('=h stackSearchPrevious x: '..localstackSearchPrevious.x..' y: '..localstackSearchPrevious.y..' z: '..localstackSearchPrevious.z)
-    --DuelPrint('=h stackSearchCurrent x: '..localstackSearchCurrent.x..' y: '..localstackSearchCurrent.y..' z: '..localstackSearchCurrent.z)
-
     local currentStackColor = CheckStackLayoutCoords(localPile, {x=localstackSearchCurrent.x, y=localstackSearchCurrent.y, z=localstackSearchCurrent.z})
     local previousStackColor = CheckStackLayoutCoords(localPile, {x=localstackSearchPrevious.x, y=localstackSearchPrevious.y, z=localstackSearchPrevious.z})
     local oldStackColor = CheckStackLayoutCoords(localPile, {x=localstackSearchOld.x, y=localstackSearchOld.y, z=localstackSearchOld.z})
@@ -2034,16 +2030,12 @@ function CheckStackLayoutCoords(localPile, coords) --returns color index of stac
             return 16
     end
     for i,v in ipairs(localPile.stacksInfo) do
-        --DuelPrint('=g v.hexCoords.x: '..tostring(v.hexCoords.x)..' v.hexCoords.y: '..tostring(v.hexCoords.y)..' v.hexCoords.z: '..tostring(v.hexCoords.z))
-        --DuelPrint('=g coords.x: '..tostring(coords.x)..' coords.y: '..tostring(coords.y)..' coords.z: '..tostring(coords.z))
         if (v.hexCoords.x == coords.x and
             v.hexCoords.y == coords.y and
             v.hexCoords.z == coords.z) then
-                --DuelPrint('=g return cIndex = '..tostring(v.cIndex))
                 return v.cIndex
         end
     end
-    --DuelPrint('=g return false')
     return false
 end
 
@@ -2666,7 +2658,7 @@ function AdvanceRouletteBall()
     Game.GetTeleportationFacility():Teleport(entity, newPos, EulerAngles.new(0, 0, 0)) --update ball to latest position
 
     ball_angle = math.deg(math.atan2( (newPos.y - ball_center.y), (newPos.x - ball_center.x) )) + 180 --calculate ball's angle relative to center in degrees
-            --atan2() is depreciated after lua 5.3, CET currently uses 5.1 (2024-04-18)
+            --atan2() is depreciated after lua 5.3, CET currently uses 5.1 (2024-04-18),(2025-04-10)
 
     if not ball_spinning then
         --reset all ball variables for next spin
@@ -3924,6 +3916,6 @@ end
 --Script Initialized
 --==================
 
-DuelPrint('[log] init.lua loaded, Time: '..tostring(os.time()))
-DuelPrint('-=- Welcome to Roulette by Boe6! -=- Current Unix Time: '..os.time())
+--DuelPrint('[log] init.lua loaded, Time: '..tostring(os.time()))
+--DuelPrint('-=- Welcome to Roulette by Boe6! -=- Current Unix Time: '..os.time())
 return MyMod
