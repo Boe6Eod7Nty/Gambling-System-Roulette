@@ -58,12 +58,12 @@ end
 -- Load the roulette spinner at the specified center position
 function RouletteSpinner:load(spinnerCenter)
     if not spinnerCenter then
-        print("Error: spinnerCenter parameter is required")
+        DualPrint("Error: spinnerCenter parameter is required")
         return false
     end
     
     if self.isLoaded then
-        print("Warning: Spinner is already loaded. Unload first to reload.")
+        DualPrint("Warning: Spinner is already loaded. Unload first to reload.")
         return false
     end
     
@@ -76,7 +76,7 @@ end
 -- Unload the roulette spinner
 function RouletteSpinner:unload()
     if not self.isLoaded then
-        print("Warning: Spinner is not loaded. Nothing to unload.")
+        DualPrint("Warning: Spinner is not loaded. Nothing to unload.")
         return false
     end
     
@@ -89,12 +89,12 @@ end
 -- Start the roulette simulation
 function RouletteSpinner:startSimulation()
     if not self.isLoaded then
-        print("Error: Cannot start simulation - spinner is not loaded")
+        DualPrint("Error: Cannot start simulation - spinner is not loaded")
         return false
     end
     
     if self.isSimulationRunning then
-        print("Warning: Simulation is already running")
+        DualPrint("Warning: Simulation is already running")
         return false
     end
     
@@ -109,19 +109,19 @@ function RouletteSpinner:startSimulation()
     self.frameCounter = 0
     
     self.isSimulationRunning = true
-    print("Simulation started")
+    DualPrint("Simulation started")
     return true
 end
 
 -- Stop the roulette simulation
 function RouletteSpinner:stopSimulation()
     if not self.isSimulationRunning then
-        print("Warning: Simulation is not running")
+        DualPrint("Warning: Simulation is not running")
         return false
     end
     
     self.isSimulationRunning = false
-    print("Simulation stopped")
+    DualPrint("Simulation stopped")
     return true
 end
 
@@ -135,11 +135,11 @@ function RouletteSpinner:processSimulationFrame(dt)
     self.frameCounter = self.frameCounter + 1
     
     -- Print ball position each frame
-    print("Frame " .. self.frameCounter .. ": Ball at x=" .. string.format("%.2f", self.ballX) .. ", y=" .. string.format("%.2f", self.ballY))
+    DualPrint("Frame " .. self.frameCounter .. ": Ball at x=" .. string.format("%.2f", self.ballX) .. ", y=" .. string.format("%.2f", self.ballY))
     
     -- Check if we've reached 1000 frames
     if self.frameCounter >= 1000 then
-        print("Simulation ended after 1000 frames")
+        DualPrint("Simulation ended after 1000 frames")
         self.isSimulationRunning = false
         return
     end
@@ -234,7 +234,7 @@ end
 
         -- Set the callback
         spinner.onBallLanded = function(result)
-            print("Ball landed on: " .. tostring(result))
+            DualPrint("Ball landed on: " .. tostring(result))
             -- Handle the result
         end
 

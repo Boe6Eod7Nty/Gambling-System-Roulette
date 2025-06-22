@@ -56,33 +56,39 @@ end)
 
 -- Dev hotkeys
 registerHotkey('DevHotkey1', 'Dev Hotkey 1', function()
-    DuelPrint('||=1  Dev hotkey 1 Pressed =')
+    DualPrint('||=1  Dev hotkey 1 Pressed =')
     
     -- Create and load the roulette spinner
     spinner = RouletteSpinner:new()
     local testCenter = {x = 0, y = 0, z = 0}
     if spinner:load(testCenter) then
-        DuelPrint('Spinner loaded successfully')
+        DualPrint('Spinner loaded successfully')
     else
-        DuelPrint('Failed to load spinner')
+        DualPrint('Failed to load spinner')
     end
     
     Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
 end)
 
 registerHotkey('DevHotkey2', 'Dev Hotkey 2', function()
-    DuelPrint('||=2  Dev hotkey 2 Pressed =')
+    DualPrint('||=2  Dev hotkey 2 Pressed =')
     
     -- Start the roulette simulation
     if spinner then
         if spinner:startSimulation() then
-            DuelPrint('Simulation started')
+            DualPrint('Simulation started')
         else
-            DuelPrint('Failed to start simulation')
+            DualPrint('Failed to start simulation')
         end
     else
-        DuelPrint('No spinner loaded. Press DevHotkey1 first.')
+        DualPrint('No spinner loaded. Press DevHotkey1 first.')
     end
     
     Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
 end) 
+
+function DualPrint(string) --prints to both CET console and local .log file
+    if not string then return end
+    print('[Gambling System] ' .. string)
+    spdlog.error('[Gambling System] ' .. string)
+end
