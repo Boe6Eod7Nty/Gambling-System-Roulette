@@ -40,6 +40,8 @@ registerForEvent("onInit", function() --runs on file load
     end)
     inGame = not GameUI.IsDetached() -- Required to check if ingame after reloading all mods
 
+    RouletteSpinner.init()
+    
     MyMod.ready = true
 end)
 

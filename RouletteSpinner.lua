@@ -39,7 +39,7 @@ function RouletteSpinner:new()
 end
 
 -- Initialize this lua file
-function RouletteSpinner:init()
+function RouletteSpinner.init()
     -- Initialization code her
     Observe('RadialWheelController', 'OnIsInMenuChanged', function(_, isInMenu) -- Setup observer and GameUI to detect inGame / inMenu, credit: keanuwheeze | init.lua from the sitAnywhere mod
         inMenu = isInMenu
@@ -101,8 +101,8 @@ function RouletteSpinner:startSimulation()
     -- Initialize ball position
     self.ballX = 0  -- Start at left edge
     self.ballY = 90 -- Start near top
-    -- Random horizontal velocity (positive x direction)
-    self.ballVx = math.random(50, 150) -- Random velocity between 50-150 units/sec
+    -- Random horizontal velocity (positive x direction) - much faster now
+    self.ballVx = math.random(300, 600) -- Random velocity between 300-600 units/sec
     self.ballVy = 0 -- Start with no vertical velocity
     
     -- Reset frame counter
@@ -163,10 +163,9 @@ function RouletteSpinner:processSimulationFrame(dt)
     self.ballX = self.ballX + self.ballVx * dt
     self.ballY = self.ballY + self.ballVy * dt
     
-    -- Handle wall wrapping (right edge)
+    -- Handle wall wrapping (right edge) - Fixed logic
     if self.ballX >= 360 then
-        local overflow = self.ballX - 360
-        self.ballX = overflow -- Wrap to left side with preserved overflow
+        self.ballX = self.ballX - 360 -- Wrap to left side properly
     end
     
     -- Handle ceiling collision (top edge)
