@@ -62,8 +62,29 @@ registerHotkey('DevHotkey1', 'Dev Hotkey 1', function()
     
     -- Create and load the roulette spinner
     spinner = RouletteSpinner:new()
-    local testCenter = {x = 0, y = 0, z = 0}
-    if spinner:load(testCenter) then
+    local testCenter = {x=-1045.09375, y=1345.21069, z=6.21331358} --hoohbar
+    
+    -- Spawn the ball entity
+    local ballSpec = StaticEntitySpec.new()
+    ballSpec.templatePath = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent"
+    ballSpec.position = Vector4.new(testCenter.x, testCenter.y, testCenter.z+1, 1.0)
+    ballSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
+    ballSpec.tags = {"rouletteBall"}
+    
+    local ballEntityID = Game.GetStaticEntitySystem():SpawnEntity(ballSpec)
+    DualPrint('Ball entity spawned with ID: ' .. tostring(ballEntityID))
+    
+    -- Spawn the spinner entity
+    local spinnerSpec = StaticEntitySpec.new()
+    spinnerSpec.templatePath = "boe6\\gambling_system_roulette\\casino_table_roulette_spin_spinner.ent"
+    spinnerSpec.position = Vector4.new(testCenter.x, testCenter.y, testCenter.z, 1.0)
+    spinnerSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
+    spinnerSpec.tags = {"rouletteSpinner"}
+    
+    local spinnerEntityID = Game.GetStaticEntitySystem():SpawnEntity(spinnerSpec)
+    DualPrint('Spinner entity spawned with ID: ' .. tostring(spinnerEntityID))
+    
+    if spinner:load(testCenter, ballEntityID, spinnerEntityID) then
         DualPrint('Spinner loaded successfully')
     else
         DualPrint('Failed to load spinner')

@@ -24,6 +24,10 @@ function RouletteSpinner:new()
         ballVy = 0,                 -- Ball y velocity
         ballRadius = 5,             -- Ball radius size
         
+        -- Entity IDs
+        ballEntityID = nil,         -- Entity ID for the roulette ball
+        spinnerEntityID = nil,      -- Entity ID for the roulette spinner
+        
         -- Physics properties
         gravityModifier = 1.0,      -- Overall gravity modifier (1.0 = normal gravity)
         
@@ -56,7 +60,7 @@ function RouletteSpinner.init()
 end
 
 -- Load the roulette spinner at the specified center position
-function RouletteSpinner:load(spinnerCenter)
+function RouletteSpinner:load(spinnerCenter, ballEntityID, spinnerEntityID)
     if not spinnerCenter then
         DualPrint("Error: spinnerCenter parameter is required")
         return false
@@ -68,6 +72,8 @@ function RouletteSpinner:load(spinnerCenter)
     end
     
     self.spinnerCenter = spinnerCenter
+    self.ballEntityID = ballEntityID
+    self.spinnerEntityID = spinnerEntityID
     self.isLoaded = true
     -- Load implementation here
     return true
@@ -81,6 +87,8 @@ function RouletteSpinner:unload()
     end
     
     self.spinnerCenter = nil
+    self.ballEntityID = nil
+    self.spinnerEntityID = nil
     self.isLoaded = false
     -- Unload implementation here
     return true
