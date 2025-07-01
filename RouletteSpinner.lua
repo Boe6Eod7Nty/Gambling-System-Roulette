@@ -24,9 +24,9 @@ local COORDINATE_CONSTANTS = {
     BASE_ORIGIN_OFFSET = {x=0, y=0.2, z=0.1},
     
     -- Physics constants
-    HORIZONTAL_DECELERATION = 30, -- units per second squared
+    HORIZONTAL_DECELERATION = 20, -- units per second squared
     GRAVITY = 50,                 -- units per second squared
-    GRAVITY_THRESHOLD = 30,       -- Start gravity when horizontal speed is below this
+    GRAVITY_THRESHOLD = 200,       -- Start gravity when horizontal speed is below this
     GRAVITY_MODIFIER = 1.0,       -- Overall gravity modifier (1.0 = normal gravity)
     
     -- Initial ball speed constants
@@ -293,7 +293,7 @@ function RouletteSpinner:startSimulation()
     
     -- Initialize ball position
     self.ballX = 0  -- Start at left edge
-    self.ballY = 90 -- Start near top
+    self.ballY = 100 -- Start at top
     -- Random horizontal velocity (positive x direction) - much faster now
     self.ballVx = math.random(COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MIN, COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MAX) -- Random velocity between 300-600 units/sec
     self.ballVy = COORDINATE_CONSTANTS.INITIAL_BALL_VERTICAL_SPEED -- Start with small downward velocity so ball falls immediately
