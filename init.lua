@@ -63,28 +63,9 @@ registerHotkey('DevHotkey1', 'Dev Hotkey 1', function()
     -- Create and load the roulette spinner
     spinner = RouletteSpinner:new()
     local testCenter = {x=-1045.09375, y=1345.21069, z=6.21331358} --hoohbar
+    local testRotation = -179.7887985
     
-    -- Spawn the ball entity
-    local ballSpec = StaticEntitySpec.new()
-    ballSpec.templatePath = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent"
-    ballSpec.position = Vector4.new(testCenter.x, testCenter.y, testCenter.z+1, 1.0)
-    ballSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
-    ballSpec.tags = {"rouletteBall"}
-    
-    local ballEntityID = Game.GetStaticEntitySystem():SpawnEntity(ballSpec)
-    DualPrint('Ball entity spawned with ID: ' .. tostring(ballEntityID))
-    
-    -- Spawn the spinner entity
-    local spinnerSpec = StaticEntitySpec.new()
-    spinnerSpec.templatePath = "boe6\\gambling_system_roulette\\casino_table_roulette_spin_spinner.ent"
-    spinnerSpec.position = Vector4.new(testCenter.x, testCenter.y, testCenter.z, 1.0)
-    spinnerSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
-    spinnerSpec.tags = {"rouletteSpinner"}
-    
-    local spinnerEntityID = Game.GetStaticEntitySystem():SpawnEntity(spinnerSpec)
-    DualPrint('Spinner entity spawned with ID: ' .. tostring(spinnerEntityID))
-    
-    if spinner:load(testCenter, ballEntityID, spinnerEntityID) then
+    if spinner:load(testCenter, testRotation) then
         DualPrint('Spinner loaded successfully')
     else
         DualPrint('Failed to load spinner')
@@ -108,7 +89,49 @@ registerHotkey('DevHotkey2', 'Dev Hotkey 2', function()
     end
     
     Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
-end) 
+end)
+
+registerHotkey('DevHotkey3', 'Dev Hotkey 3', function()
+    DualPrint('||=3  Dev hotkey 3 Pressed =')
+    
+    -- Stop and unload the roulette spinner
+    if spinner then
+        if spinner:stopSimulation() then
+            DualPrint('Simulation stopped')
+        else
+            DualPrint('Failed to stop simulation')
+        end
+        
+        if spinner:unload() then
+            DualPrint('Spinner unloaded successfully')
+        else
+            DualPrint('Failed to unload spinner')
+        end
+        
+        spinner = nil
+    else
+        DualPrint('No spinner loaded. Press DevHotkey1 first.')
+    end
+    
+    Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
+end)
+
+registerHotkey('DevHotkey4', 'Dev Hotkey 4', function()
+    DualPrint('||=4  Dev hotkey 4 Pressed =')
+    
+    -- Spawn debug grid to visualize coordinate transformation
+    if spinner then
+        if spinner:spawnDebugGrid() then
+            DualPrint('Debug grid spawned successfully')
+        else
+            DualPrint('Failed to spawn debug grid')
+        end
+    else
+        DualPrint('No spinner loaded. Press DevHotkey1 first.')
+    end
+    
+    Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
+end)
 
 function DualPrint(string) --prints to both CET console and local .log file
     if not string then return end

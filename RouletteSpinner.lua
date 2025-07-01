@@ -2,6 +2,39 @@ local RouletteSpinner = {
     version = "1.0.0"
 }
 
+-- Coordinate translation constants - easily adjustable
+local COORDINATE_CONSTANTS = {
+    -- Frustum shape thingies - now with middle radius for two frustum shapes
+    BOTTOM_RADIUS = 0.21,   -- Radius at bottom part (y = -10) - small circle
+    MIDDLE_RADIUS = 0.24,   -- Radius at middle part (y = 45) - middle circle (NEW!)
+    TOP_RADIUS = 0.358,      -- Radius at top part (y = 100) - big circle
+    
+    -- Height map thing (2D simulator coords)
+    MIN_HEIGHT = -10,      -- Simulator Y lowest point
+    MIDDLE_HEIGHT = 15,    -- Simulator Y middle point (NEW!)
+    MAX_HEIGHT = 100,      -- Simulator Y highest point
+    HEIGHT_RANGE = 110,    -- Total height thing (MAX_HEIGHT - MIN_HEIGHT)
+    
+    -- 3D height map thing (real Z coords in world)
+    BOTTOM_Z_OFFSET = 0.055,  -- Z offset at bottom of frustum (y = -10)
+    MIDDLE_Z_OFFSET = 0.07, -- Z offset at middle of frustum (y = 45) (NEW!)
+    TOP_Z_OFFSET = 0.08,     -- Z offset at top of frustum (y = 100)
+    
+    -- Base origin offset in 3D world coords (before spin)
+    BASE_ORIGIN_OFFSET = {x=0, y=0.2, z=0.1},
+    
+    -- Physics constants
+    HORIZONTAL_DECELERATION = 30, -- units per second squared
+    GRAVITY = 50,                 -- units per second squared
+    GRAVITY_THRESHOLD = 30,       -- Start gravity when horizontal speed is below this
+    GRAVITY_MODIFIER = 1.0,       -- Overall gravity modifier (1.0 = normal gravity)
+    
+    -- Initial ball speed constants
+    INITIAL_BALL_SPEED_MIN = 400, -- Minimum initial horizontal velocity (units/sec)
+    INITIAL_BALL_SPEED_MAX = 600, -- Maximum initial horizontal velocity (units/sec)
+    INITIAL_BALL_VERTICAL_SPEED = 0 -- Initial vertical velocity (units/sec)
+}
+
 local Cron = require('External/Cron.lua')
 local GameUI = require("External/GameUI.lua")
 local CollisionCtR = require("CollisionCtR.lua")
@@ -27,9 +60,23 @@ function RouletteSpinner:new()
         -- Entity IDs
         ballEntityID = nil,         -- Entity ID for the roulette ball
         spinnerEntityID = nil,      -- Entity ID for the roulette spinner
+        debugBallEntities = {},     -- Array to track debug ball entities
         
         -- Physics properties
-        gravityModifier = 1.0,      -- Overall gravity modifier (1.0 = normal gravity)
+        gravityModifier = COORDINATE_CONSTANTS.GRAVITY_MODIFIER,      -- Overall gravity modifier (1.0 = normal gravity)
+        
+        -- Coordinate translation properties
+        simulatorOriginOffset = {x=0, y=0, z=0}, -- Origin offset in 3D world coordinates
+        bottomRadius = COORDINATE_CONSTANTS.BOTTOM_RADIUS,
+        middleRadius = COORDINATE_CONSTANTS.MIDDLE_RADIUS,
+        topRadius = COORDINATE_CONSTANTS.TOP_RADIUS,
+        minHeight = COORDINATE_CONSTANTS.MIN_HEIGHT,
+        middleHeight = COORDINATE_CONSTANTS.MIDDLE_HEIGHT,
+        maxHeight = COORDINATE_CONSTANTS.MAX_HEIGHT,
+        heightRange = COORDINATE_CONSTANTS.HEIGHT_RANGE,
+        bottomZOffset = COORDINATE_CONSTANTS.BOTTOM_Z_OFFSET,
+        middleZOffset = COORDINATE_CONSTANTS.MIDDLE_Z_OFFSET,
+        topZOffset = COORDINATE_CONSTANTS.TOP_Z_OFFSET,
         
         -- State properties
         isLoaded = false,
@@ -60,7 +107,7 @@ function RouletteSpinner.init()
 end
 
 -- Load the roulette spinner at the specified center position
-function RouletteSpinner:load(spinnerCenter, ballEntityID, spinnerEntityID)
+function RouletteSpinner:load(spinnerCenter, rotationOffset)
     if not spinnerCenter then
         DualPrint("Error: spinnerCenter parameter is required")
         return false
@@ -71,12 +118,106 @@ function RouletteSpinner:load(spinnerCenter, ballEntityID, spinnerEntityID)
         return false
     end
     
+    -- Default rotation offset to 0 if not provided
+    rotationOffset = rotationOffset or 0
+    
+    -- Convert degrees to radians for the orientation
+    local rotationRadians = math.rad(rotationOffset)
+    
+    -- This is the start offset of the ball from the spinner center
+    local simulatorOriginOffsetBase = COORDINATE_CONSTANTS.BASE_ORIGIN_OFFSET
+    
+    -- Apply rotation to the offset
+    local cosRot = math.cos(rotationRadians)
+    local sinRot = math.sin(rotationRadians)
+    self.simulatorOriginOffset = {
+        x = simulatorOriginOffsetBase.x * cosRot - simulatorOriginOffsetBase.y * sinRot,
+        y = simulatorOriginOffsetBase.x * sinRot + simulatorOriginOffsetBase.y * cosRot,
+        z = simulatorOriginOffsetBase.z
+    }
+
+    -- Spawn the ball entity
+    local ballSpec = StaticEntitySpec.new()
+    ballSpec.templatePath = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent"
+    ballSpec.position = Vector4.new(spinnerCenter.x+self.simulatorOriginOffset.x, spinnerCenter.y+self.simulatorOriginOffset.y, spinnerCenter.z+self.simulatorOriginOffset.z, 1.0)
+    ballSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
+    ballSpec.tags = {"rouletteBall"}
+    
+    self.ballEntityID = Game.GetStaticEntitySystem():SpawnEntity(ballSpec)
+    DualPrint('Ball entity spawned with ID: ' .. tostring(self.ballEntityID))
+    
+    -- Spawn the spinner entity
+    local spinnerSpec = StaticEntitySpec.new()
+    spinnerSpec.templatePath = "boe6\\gambling_system_roulette\\casino_table_roulette_spin_spinner.ent"
+    spinnerSpec.position = Vector4.new(spinnerCenter.x, spinnerCenter.y, spinnerCenter.z, 1.0)
+    spinnerSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, rotationRadians))
+    spinnerSpec.tags = {"rouletteSpinner"}
+    
+    self.spinnerEntityID = Game.GetStaticEntitySystem():SpawnEntity(spinnerSpec)
+    DualPrint('Spinner entity spawned with ID: ' .. tostring(self.spinnerEntityID) .. ' with rotation offset: ' .. tostring(self.simulatorOriginOffset) .. ' degrees')
+    
     self.spinnerCenter = spinnerCenter
-    self.ballEntityID = ballEntityID
-    self.spinnerEntityID = spinnerEntityID
+    self.spinnerRotation = rotationRadians -- Store the rotation in radians
     self.isLoaded = true
     -- Load implementation here
     return true
+end
+
+-- Translate simulator coordinates to 3D world coordinates
+function RouletteSpinner:translateToWorldCoords(simX, simY)
+    if not self.isLoaded then
+        DualPrint("Error: Cannot translate coordinates - spinner is not loaded")
+        return nil
+    end
+
+    -- The spinnerCenter is the true center of the roulette table/spinner.
+    -- The frustum should be built around this point in X and Y.
+    local centerX = self.spinnerCenter.x
+    local centerY = self.spinnerCenter.y
+    local centerZ = self.spinnerCenter.z
+
+    -- Map simY to height progress and calculate radius and zOffset
+    local clampedY = math.max(self.minHeight, math.min(self.maxHeight, simY))
+    local radius, zOffset
+    
+    -- Determine which frustum shape to use based on height
+    if clampedY <= self.middleHeight then
+        -- Bottom frustum: from MIN_HEIGHT to MIDDLE_HEIGHT
+        local heightProgress = (clampedY - self.minHeight) / (self.middleHeight - self.minHeight)
+        radius = self.bottomRadius + (self.middleRadius - self.bottomRadius) * heightProgress
+        zOffset = self.bottomZOffset + (self.middleZOffset - self.bottomZOffset) * heightProgress
+    else
+        -- Top frustum: from MIDDLE_HEIGHT to MAX_HEIGHT
+        local heightProgress = (clampedY - self.middleHeight) / (self.maxHeight - self.middleHeight)
+        radius = self.middleRadius + (self.topRadius - self.middleRadius) * heightProgress
+        zOffset = self.middleZOffset + (self.topZOffset - self.middleZOffset) * heightProgress
+    end
+
+    -- Calculate the angle of the BASE_ORIGIN_OFFSET relative to the spinner's center.
+    -- This defines the "zero" point on the frustum's circumference.
+    -- This angle is for BASE_ORIGIN_OFFSET itself, before spinner rotation.
+    local baseOriginAngle = math.atan2(COORDINATE_CONSTANTS.BASE_ORIGIN_OFFSET.y, COORDINATE_CONSTANTS.BASE_ORIGIN_OFFSET.x)
+
+    -- The current angular position of the ball on the frustum's circumference is:
+    -- (base angle for simulator's 0,0) + (simulator's X position as an angle) + (spinner's current rotation)
+    local currentBallAngleRad = baseOriginAngle + math.rad(simX) + self.spinnerRotation
+
+    -- Calculate the X and Y offsets from the frustum's central axis (spinnerCenter)
+    -- based on the calculated radius and the combined angle.
+    local offsetX = radius * math.cos(currentBallAngleRad)
+    local offsetY = radius * math.sin(currentBallAngleRad)
+
+    -- The final position is the spinnerCenter plus these calculated offsets.
+    -- The Z position also uses the spinner's Z and the height-based zOffset.
+    local finalX = centerX + offsetX
+    local finalY = centerY + offsetY
+    local finalZ = centerZ + zOffset
+
+    return {
+        x = finalX,
+        y = finalY,
+        z = finalZ
+    }
 end
 
 -- Unload the roulette spinner
@@ -86,11 +227,55 @@ function RouletteSpinner:unload()
         return false
     end
     
+    -- Stop simulation if it's running
+    if self.isSimulationRunning then
+        self:stopSimulation()
+    end
+    
+    -- Clear debug grid
+    self:clearDebugGrid()
+    
+    -- Delete the ball entity if it exists
+    if self.ballEntityID then
+        Game.GetStaticEntitySystem():DespawnEntity(self.ballEntityID)
+        DualPrint('Ball entity deleted with ID: ' .. tostring(self.ballEntityID))
+        self.ballEntityID = nil
+    end
+    
+    -- Delete the spinner entity if it exists
+    if self.spinnerEntityID then
+        Game.GetStaticEntitySystem():DespawnEntity(self.spinnerEntityID)
+        DualPrint('Spinner entity deleted with ID: ' .. tostring(self.spinnerEntityID))
+        self.spinnerEntityID = nil
+    end
+    
+    -- Reset all properties to initial state
     self.spinnerCenter = nil
-    self.ballEntityID = nil
-    self.spinnerEntityID = nil
+    self.spinnerRotation = 0
+    self.spinnerVelocity = 0
+    self.ballX = 0
+    self.ballY = 0
+    self.ballVx = 0
+    self.ballVy = 0
+    self.ballRadius = 5
+    self.gravityModifier = COORDINATE_CONSTANTS.GRAVITY_MODIFIER
+    self.simulatorOriginOffset = {x=0, y=0, z=0}
+    self.bottomRadius = COORDINATE_CONSTANTS.BOTTOM_RADIUS
+    self.middleRadius = COORDINATE_CONSTANTS.MIDDLE_RADIUS
+    self.topRadius = COORDINATE_CONSTANTS.TOP_RADIUS
+    self.minHeight = COORDINATE_CONSTANTS.MIN_HEIGHT
+    self.middleHeight = COORDINATE_CONSTANTS.MIDDLE_HEIGHT
+    self.maxHeight = COORDINATE_CONSTANTS.MAX_HEIGHT
+    self.heightRange = COORDINATE_CONSTANTS.HEIGHT_RANGE
+    self.bottomZOffset = COORDINATE_CONSTANTS.BOTTOM_Z_OFFSET
+    self.middleZOffset = COORDINATE_CONSTANTS.MIDDLE_Z_OFFSET
+    self.topZOffset = COORDINATE_CONSTANTS.TOP_Z_OFFSET
     self.isLoaded = false
-    -- Unload implementation here
+    self.isSimulationRunning = false
+    self.frameCounter = 0
+    self.onBallLanded = nil
+    
+    DualPrint("Roulette spinner unloaded successfully")
     return true
 end
 
@@ -110,8 +295,8 @@ function RouletteSpinner:startSimulation()
     self.ballX = 0  -- Start at left edge
     self.ballY = 90 -- Start near top
     -- Random horizontal velocity (positive x direction) - much faster now
-    self.ballVx = math.random(300, 600) -- Random velocity between 300-600 units/sec
-    self.ballVy = 0 -- Start with no vertical velocity
+    self.ballVx = math.random(COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MIN, COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MAX) -- Random velocity between 300-600 units/sec
+    self.ballVy = COORDINATE_CONSTANTS.INITIAL_BALL_VERTICAL_SPEED -- Start with small downward velocity so ball falls immediately
     
     -- Reset frame counter
     self.frameCounter = 0
@@ -142,18 +327,26 @@ function RouletteSpinner:processSimulationFrame(dt)
     -- Increment frame counter
     self.frameCounter = self.frameCounter + 1
     
-    -- Print ball position each frame
-    DualPrint("Frame " .. self.frameCounter .. ": Ball at x=" .. string.format("%.2f", self.ballX) .. ", y=" .. string.format("%.2f", self.ballY))
+    -- Translate simulator coordinates to world coordinates and teleport the ball
+    local worldCoords = self:translateToWorldCoords(self.ballX, self.ballY)
+    if worldCoords and self.ballEntityID then
+        -- Teleport the ball to the new world position
+        local ballEntity = Game.FindEntityByID(self.ballEntityID)
+        if ballEntity then
+            local newPosition = Vector4.new(worldCoords.x, worldCoords.y, worldCoords.z, 1.0)
+            Game.GetTeleportationFacility():Teleport(ballEntity, newPosition, EulerAngles.new(0, 0, 0))
+        end
+    end
     
-    -- Check if we've reached 1000 frames
-    if self.frameCounter >= 1000 then
-        DualPrint("Simulation ended after 1000 frames")
+    -- Check if we've reached 3000 frames (increased from 1000)
+    if self.frameCounter >= 3000 then
+        DualPrint("Simulation ended after 3000 frames")
         self.isSimulationRunning = false
         return
     end
     
-    -- Apply horizontal deceleration (slowly reduce horizontal velocity towards 0)
-    local horizontalDeceleration = 20 -- units per second squared
+    -- Apply horizontal deceleration (faster deceleration)
+    local horizontalDeceleration = COORDINATE_CONSTANTS.HORIZONTAL_DECELERATION -- units per second squared (increased from 20)
     if self.ballVx > 0 then
         self.ballVx = math.max(0, self.ballVx - horizontalDeceleration * dt)
     elseif self.ballVx < 0 then
@@ -161,9 +354,9 @@ function RouletteSpinner:processSimulationFrame(dt)
     end
     
     -- Apply gravity when horizontal velocity is low enough
-    local gravityThreshold = 30 -- Start gravity when horizontal speed is below this
+    local gravityThreshold = COORDINATE_CONSTANTS.GRAVITY_THRESHOLD -- Start gravity when horizontal speed is below this
     if math.abs(self.ballVx) < gravityThreshold then
-        local gravity = 50 * self.gravityModifier -- units per second squared
+        local gravity = COORDINATE_CONSTANTS.GRAVITY * self.gravityModifier -- units per second squared
         self.ballVy = self.ballVy - gravity * dt
     end
     
@@ -235,19 +428,66 @@ function RouletteSpinner:ballLanded(result)
         self.onBallLanded(result)
     end
 end
-    --[[ ballLanded() example for init.lua:
 
-        local spinner = RouletteSpinner:new()
-
-        -- Set the callback
-        spinner.onBallLanded = function(result)
-            DualPrint("Ball landed on: " .. tostring(result))
-            -- Handle the result
+-- Debug function to spawn a 10x10 grid of balls to visualize the coordinate transformation
+function RouletteSpinner:spawnDebugGrid()
+    if not self.isLoaded then
+        DualPrint("Error: Cannot spawn debug grid - spinner is not loaded")
+        return false
+    end
+    
+    -- Clear any existing debug balls
+    self:clearDebugGrid()
+    
+    DualPrint("Spawning 10x10 debug grid of balls...")
+    
+    -- Create 10x10 grid spanning x=0-360, y=-10-100
+    local gridSize = 10
+    local xStep = 360 / (gridSize - 1)  -- 0 to 360 in 10 steps
+    local yStep = 110 / (gridSize - 1)  -- -10 to 100 in 10 steps
+    
+    for i = 0, gridSize - 1 do
+        for j = 0, gridSize - 1 do
+            local simX = i * xStep
+            local simY = -10 + (j * yStep)
+            
+            -- Translate simulator coordinates to world coordinates
+            local worldCoords = self:translateToWorldCoords(simX, simY)
+            
+            if worldCoords then
+                -- Spawn a debug ball at the calculated world position
+                local ballSpec = StaticEntitySpec.new()
+                ballSpec.templatePath = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent"
+                ballSpec.position = Vector4.new(worldCoords.x, worldCoords.y, worldCoords.z, 1.0)
+                ballSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
+                ballSpec.tags = {"rouletteDebugBall"}
+                
+                local debugBallID = Game.GetStaticEntitySystem():SpawnEntity(ballSpec)
+                table.insert(self.debugBallEntities, debugBallID)
+                
+                DualPrint(string.format("Debug ball %d spawned at sim(%.1f, %.1f) -> world(%.3f, %.3f, %.3f)", 
+                    #self.debugBallEntities, simX, simY, worldCoords.x, worldCoords.y, worldCoords.z))
+            else
+                DualPrint(string.format("Failed to translate coordinates for sim(%.1f, %.1f)", simX, simY))
+            end
         end
+    end
+    
+    DualPrint(string.format("Debug grid spawned: %d balls total", #self.debugBallEntities))
+    return true
+end
 
-        -- When the ball lands, call this:
-        spinner:ballLanded("red 7")
-        
-    ]]--
+-- Clear all debug balls
+function RouletteSpinner:clearDebugGrid()
+    if self.debugBallEntities then
+        for _, ballID in ipairs(self.debugBallEntities) do
+            if ballID then
+                Game.GetStaticEntitySystem():DespawnEntity(ballID)
+            end
+        end
+        self.debugBallEntities = {}
+        DualPrint("Debug grid cleared")
+    end
+end
 
 return RouletteSpinner 
