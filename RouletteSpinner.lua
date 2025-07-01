@@ -2,6 +2,10 @@ local RouletteSpinner = {
     version = "1.0.0"
 }
 
+-- Moving block feature: A 1x10 unit block that moves opposite to the ball direction
+-- Starts at X=0, Y=-10 and moves horizontally, wrapping from left to right edge
+-- Provides visual obstacle and adds complexity to the roulette simulation
+
 -- Coordinate translation constants - easily adjustable
 local COORDINATE_CONSTANTS = {
     -- Frustum shape thingies - now with middle radius for two frustum shapes
@@ -32,7 +36,12 @@ local COORDINATE_CONSTANTS = {
     -- Initial ball speed constants
     INITIAL_BALL_SPEED_MIN = 400, -- Minimum initial horizontal velocity (units/sec)
     INITIAL_BALL_SPEED_MAX = 600, -- Maximum initial horizontal velocity (units/sec)
-    INITIAL_BALL_VERTICAL_SPEED = 0 -- Initial vertical velocity (units/sec)
+    INITIAL_BALL_VERTICAL_SPEED = 0, -- Initial vertical velocity (units/sec)
+    
+    -- Moving block constants
+    BLOCK_SPEED = 150, -- Block movement speed (units/sec) - opposite direction to ball
+    BLOCK_WIDTH = 1,   -- Block width in simulator units
+    BLOCK_HEIGHT = 10  -- Block height in simulator units
 }
 
 local Cron = require('External/Cron.lua')
@@ -57,9 +66,15 @@ function RouletteSpinner:new()
         ballVy = 0,                 -- Ball y velocity
         ballRadius = 5,             -- Ball radius size
         
+        -- Moving block properties
+        blockX = 0,                 -- Block x coordinate
+        blockY = -10,               -- Block y coordinate (starts at bottom)
+        blockVx = 0,                -- Block x velocity
+        
         -- Entity IDs
         ballEntityID = nil,         -- Entity ID for the roulette ball
         spinnerEntityID = nil,      -- Entity ID for the roulette spinner
+        blockEntityID = nil,        -- Entity ID for the moving block
         debugBallEntities = {},     -- Array to track debug ball entities
         
         -- Physics properties
@@ -159,6 +174,22 @@ function RouletteSpinner:load(spinnerCenter, rotationOffset)
     self.spinnerCenter = spinnerCenter
     self.spinnerRotation = rotationRadians -- Store the rotation in radians
     self.isLoaded = true
+    
+    -- Spawn the moving block entity (after isLoaded is set to true)
+    local blockWorldCoords = self:translateToWorldCoords(0, -10) -- Start at X=0, Y=-10
+    if blockWorldCoords then
+        local blockSpec = StaticEntitySpec.new()
+        blockSpec.templatePath = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent" -- Using ball template for now, can be changed to block later
+        blockSpec.position = Vector4.new(blockWorldCoords.x, blockWorldCoords.y, blockWorldCoords.z, 1.0)
+        blockSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
+        blockSpec.tags = {"rouletteBlock"}
+        
+        self.blockEntityID = Game.GetStaticEntitySystem():SpawnEntity(blockSpec)
+        DualPrint('Block entity spawned with ID: ' .. tostring(self.blockEntityID) .. ' at position X=0, Y=-10')
+    else
+        DualPrint('Error: Failed to spawn block entity - could not translate coordinates')
+    end
+    
     -- Load implementation here
     return true
 end
@@ -199,8 +230,9 @@ function RouletteSpinner:translateToWorldCoords(simX, simY)
     local baseOriginAngle = math.atan2(COORDINATE_CONSTANTS.BASE_ORIGIN_OFFSET.y, COORDINATE_CONSTANTS.BASE_ORIGIN_OFFSET.x)
 
     -- The current angular position of the ball on the frustum's circumference is:
-    -- (base angle for simulator's 0,0) + (simulator's X position as an angle) + (spinner's current rotation)
-    local currentBallAngleRad = baseOriginAngle + math.rad(simX) + self.spinnerRotation
+    -- (base angle for simulator's 0,0) + (simulator's X position as an angle)
+    -- Ball moves independently of spinner rotation
+    local currentBallAngleRad = baseOriginAngle + math.rad(simX)
 
     -- Calculate the X and Y offsets from the frustum's central axis (spinnerCenter)
     -- based on the calculated radius and the combined angle.
@@ -249,6 +281,13 @@ function RouletteSpinner:unload()
         self.spinnerEntityID = nil
     end
     
+    -- Delete the block entity if it exists
+    if self.blockEntityID then
+        Game.GetStaticEntitySystem():DespawnEntity(self.blockEntityID)
+        DualPrint('Block entity deleted with ID: ' .. tostring(self.blockEntityID))
+        self.blockEntityID = nil
+    end
+    
     -- Reset all properties to initial state
     self.spinnerCenter = nil
     self.spinnerRotation = 0
@@ -258,6 +297,9 @@ function RouletteSpinner:unload()
     self.ballVx = 0
     self.ballVy = 0
     self.ballRadius = 5
+    self.blockX = 0
+    self.blockY = -10
+    self.blockVx = 0
     self.gravityModifier = COORDINATE_CONSTANTS.GRAVITY_MODIFIER
     self.simulatorOriginOffset = {x=0, y=0, z=0}
     self.bottomRadius = COORDINATE_CONSTANTS.BOTTOM_RADIUS
@@ -297,6 +339,12 @@ function RouletteSpinner:startSimulation()
     -- Random horizontal velocity (positive x direction) - much faster now
     self.ballVx = math.random(COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MIN, COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MAX) -- Random velocity between 300-600 units/sec
     self.ballVy = COORDINATE_CONSTANTS.INITIAL_BALL_VERTICAL_SPEED -- Start with small downward velocity so ball falls immediately
+    
+    -- Initialize block position and velocity (opposite direction to ball)
+    self.blockX = 0  -- Start at left edge
+    self.blockY = -10 -- Start at bottom (10 units tall, so covers -10 to 0)
+    self.blockVx = -COORDINATE_CONSTANTS.BLOCK_SPEED -- Move opposite to ball direction
+    DualPrint('Block initialized: X=' .. self.blockX .. ', Y=' .. self.blockY .. ', VX=' .. self.blockVx)
     
     -- Reset frame counter
     self.frameCounter = 0
@@ -338,6 +386,17 @@ function RouletteSpinner:processSimulationFrame(dt)
         end
     end
     
+    -- Translate simulator coordinates to world coordinates and teleport the block
+    local blockWorldCoords = self:translateToWorldCoords(self.blockX, self.blockY)
+    if blockWorldCoords and self.blockEntityID then
+        -- Teleport the block to the new world position
+        local blockEntity = Game.FindEntityByID(self.blockEntityID)
+        if blockEntity then
+            local newPosition = Vector4.new(blockWorldCoords.x, blockWorldCoords.y, blockWorldCoords.z, 1.0)
+            Game.GetTeleportationFacility():Teleport(blockEntity, newPosition, EulerAngles.new(0, 0, 0))
+        end
+    end
+    
     -- Check if we've reached 3000 frames (increased from 1000)
     if self.frameCounter >= 3000 then
         DualPrint("Simulation ended after 3000 frames")
@@ -368,6 +427,35 @@ function RouletteSpinner:processSimulationFrame(dt)
     if self.ballX >= 360 then
         self.ballX = self.ballX - 360 -- Wrap to left side properly
     end
+    
+    -- Update block position
+    self.blockX = self.blockX + self.blockVx * dt
+    
+    -- Handle block wall wrapping (left edge to right edge)
+    if self.blockX <= -COORDINATE_CONSTANTS.BLOCK_WIDTH then
+        self.blockX = 360 -- Wrap to right side
+        DualPrint('Block wrapped from left to right: X=' .. self.blockX)
+    end
+    
+    -- Synchronize spinner rotation with block position
+    -- Block moves from 0 to 360, so use X position directly as rotation value
+    local newSpinnerRotation = math.rad(self.blockX) -- Convert block X position directly to radians
+    
+    -- Debug output to see what's happening
+    DualPrint('Block X: ' .. self.blockX .. ', Rotation: ' .. math.deg(newSpinnerRotation) .. ' degrees')
+    
+    -- Update spinner entity rotation
+    if self.spinnerEntityID then
+        local spinnerEntity = Game.FindEntityByID(self.spinnerEntityID)
+        if spinnerEntity then
+            -- Apply rotation around Z-axis (spinner spins horizontally)
+            local newOrientation = EulerAngles.new(0, 0, math.deg(newSpinnerRotation))
+            Game.GetTeleportationFacility():Teleport(spinnerEntity, spinnerEntity:GetWorldPosition(), newOrientation)
+        end
+    end
+    
+    -- Store the new rotation
+    self.spinnerRotation = newSpinnerRotation
     
     -- Handle ceiling collision (top edge)
     if self.ballY >= 100 then
