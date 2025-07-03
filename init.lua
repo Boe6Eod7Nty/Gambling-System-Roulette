@@ -133,6 +133,35 @@ registerHotkey('DevHotkey4', 'Dev Hotkey 4', function()
     Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
 end)
 
+registerHotkey('DevHotkey5', 'Dev Hotkey 5', function()
+    DualPrint('||=5  Dev hotkey 5 Pressed =')
+    
+    -- Test different rotation smoothing factors
+    if spinner then
+        local currentSmoothing = spinner:getRotationSmoothing()
+        DualPrint('Current rotation smoothing: ' .. currentSmoothing)
+        
+        -- Cycle through different smoothing values
+        local smoothingValues = {0.05, 0.1, 0.2, 0.5, 1.0}
+        local nextIndex = 1
+        for i, value in ipairs(smoothingValues) do
+            if math.abs(value - currentSmoothing) < 0.01 then
+                nextIndex = (i % #smoothingValues) + 1
+                break
+            end
+        end
+        
+        local newSmoothing = smoothingValues[nextIndex]
+        if spinner:setRotationSmoothing(newSmoothing) then
+            DualPrint('Rotation smoothing changed to: ' .. newSmoothing)
+        end
+    else
+        DualPrint('No spinner loaded. Press DevHotkey1 first.')
+    end
+    
+    Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
+end)
+
 function DualPrint(string) --prints to both CET console and local .log file
     if not string then return end
     print('[Gambling System] ' .. string)

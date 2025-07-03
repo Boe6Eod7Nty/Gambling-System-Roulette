@@ -2,9 +2,10 @@ local RouletteSpinner = {
     version = "1.0.0"
 }
 
--- Moving block feature: A 1x10 unit block that moves opposite to the ball direction
--- Starts at X=0, Y=-10 and moves horizontally, wrapping from left to right edge
--- Provides visual obstacle and adds complexity to the roulette simulation
+-- Moving block feature: 37 blocks that move opposite to the ball direction
+-- Blocks are equidistantly spread across the x dimension (0-360)
+-- Each block moves at the same speed and wraps from left to right edge
+-- Creates slots for the roulette ball to land in
 
 -- Coordinate translation constants - easily adjustable
 local COORDINATE_CONSTANTS = {
@@ -41,7 +42,15 @@ local COORDINATE_CONSTANTS = {
     -- Moving block constants
     BLOCK_SPEED = 150, -- Block movement speed (units/sec) - opposite direction to ball
     BLOCK_WIDTH = 1,   -- Block width in simulator units
-    BLOCK_HEIGHT = 10  -- Block height in simulator units
+    BLOCK_HEIGHT = 10, -- Block height in simulator units
+    NUM_BLOCKS = 37,   -- Total number of blocks (0-36 for roulette)
+    BLOCK_SPACING = 360 / 37, -- Distance between blocks (360 degrees / 37 blocks)
+    
+    -- Fixed timestep constants (NEW!)
+    FIXED_TIMESTEP = 1.0 / 60.0, -- 60 FPS fixed timestep (0.016667 seconds)
+    MAX_ACCUMULATOR = 0.1, -- Maximum accumulated time to prevent spiral of death
+    ENTITY_UPDATE_INTERVAL = 3, -- Update entity positions every N frames (reduces jitter)
+    ROTATION_SMOOTHING_FACTOR = 0.1 -- Smoothing factor for rotation interpolation (0.1 = smooth, 1.0 = instant)
 }
 
 local Cron = require('External/Cron.lua')
@@ -66,15 +75,12 @@ function RouletteSpinner:new()
         ballVy = 0,                 -- Ball y velocity
         ballRadius = 5,             -- Ball radius size
         
-        -- Moving block properties
-        blockX = 0,                 -- Block x coordinate
-        blockY = -10,               -- Block y coordinate (starts at bottom)
-        blockVx = 0,                -- Block x velocity
+        -- Moving block properties (now supports multiple blocks)
+        blocks = {},                -- Array of block objects with x, y, vx properties
         
         -- Entity IDs
         ballEntityID = nil,         -- Entity ID for the roulette ball
         spinnerEntityID = nil,      -- Entity ID for the roulette spinner
-        blockEntityID = nil,        -- Entity ID for the moving block
         debugBallEntities = {},     -- Array to track debug ball entities
         
         -- Physics properties
@@ -97,7 +103,17 @@ function RouletteSpinner:new()
         isLoaded = false,
         isSimulationRunning = false, -- Flag to track if simulation is active
         frameCounter = 0,           -- Counter for simulation frames
-        onBallLanded = nil -- Simple callback function for ball landing
+        onBallLanded = nil, -- Simple callback function for ball landing
+        
+        -- Collision properties
+        lastCollisionFrame = 0,     -- Frame counter when last collision occurred
+        collisionCooldown = 5,      -- Minimum frames between collisions to prevent sticking
+        debugCollisions = false,     -- Enable/disable collision debug output
+        
+        -- Fixed timestep properties (NEW!)
+        timeAccumulator = 0,        -- Accumulated time for fixed timestep
+        lastEntityUpdateFrame = 0,  -- Last frame when entities were updated
+        targetSpinnerRotation = 0,  -- Target rotation for smooth interpolation
     }
     setmetatable(obj, self)
     self.__index = self
@@ -175,20 +191,17 @@ function RouletteSpinner:load(spinnerCenter, rotationOffset)
     self.spinnerRotation = rotationRadians -- Store the rotation in radians
     self.isLoaded = true
     
-    -- Spawn the moving block entity (after isLoaded is set to true)
-    local blockWorldCoords = self:translateToWorldCoords(0, -10) -- Start at X=0, Y=-10
-    if blockWorldCoords then
-        local blockSpec = StaticEntitySpec.new()
-        blockSpec.templatePath = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent" -- Using ball template for now, can be changed to block later
-        blockSpec.position = Vector4.new(blockWorldCoords.x, blockWorldCoords.y, blockWorldCoords.z, 1.0)
-        blockSpec.orientation = EulerAngles.ToQuat(EulerAngles.new(0, 0, 0))
-        blockSpec.tags = {"rouletteBlock"}
+    -- Initialize all 37 moving blocks (no visual entities)
+    self.blocks = {}
+    
+    for i = 0, COORDINATE_CONSTANTS.NUM_BLOCKS - 1 do
+        local blockX = i * COORDINATE_CONSTANTS.BLOCK_SPACING
+        table.insert(self.blocks, {x = blockX, y = -10, vx = 0}) -- Initialize with 0 velocity, will be set in startSimulation
         
-        self.blockEntityID = Game.GetStaticEntitySystem():SpawnEntity(blockSpec)
-        DualPrint('Block entity spawned with ID: ' .. tostring(self.blockEntityID) .. ' at position X=0, Y=-10')
-    else
-        DualPrint('Error: Failed to spawn block entity - could not translate coordinates')
+        DualPrint('Block ' .. i .. ' initialized at position X=' .. blockX .. ', Y=-10')
     end
+    
+    DualPrint('All ' .. COORDINATE_CONSTANTS.NUM_BLOCKS .. ' blocks initialized successfully')
     
     -- Load implementation here
     return true
@@ -281,12 +294,8 @@ function RouletteSpinner:unload()
         self.spinnerEntityID = nil
     end
     
-    -- Delete the block entity if it exists
-    if self.blockEntityID then
-        Game.GetStaticEntitySystem():DespawnEntity(self.blockEntityID)
-        DualPrint('Block entity deleted with ID: ' .. tostring(self.blockEntityID))
-        self.blockEntityID = nil
-    end
+    -- Clear all blocks
+    self.blocks = {}
     
     -- Reset all properties to initial state
     self.spinnerCenter = nil
@@ -297,9 +306,6 @@ function RouletteSpinner:unload()
     self.ballVx = 0
     self.ballVy = 0
     self.ballRadius = 5
-    self.blockX = 0
-    self.blockY = -10
-    self.blockVx = 0
     self.gravityModifier = COORDINATE_CONSTANTS.GRAVITY_MODIFIER
     self.simulatorOriginOffset = {x=0, y=0, z=0}
     self.bottomRadius = COORDINATE_CONSTANTS.BOTTOM_RADIUS
@@ -316,6 +322,11 @@ function RouletteSpinner:unload()
     self.isSimulationRunning = false
     self.frameCounter = 0
     self.onBallLanded = nil
+    self.lastCollisionFrame = 0
+    self.debugCollisions = false
+    self.timeAccumulator = 0
+    self.lastEntityUpdateFrame = 0
+    self.targetSpinnerRotation = 0
     
     DualPrint("Roulette spinner unloaded successfully")
     return true
@@ -333,6 +344,8 @@ function RouletteSpinner:startSimulation()
         return false
     end
     
+    DualPrint("Starting simulation - blocks array size: " .. #self.blocks)
+    
     -- Initialize ball position
     self.ballX = 0  -- Start at left edge
     self.ballY = 100 -- Start at top
@@ -340,17 +353,26 @@ function RouletteSpinner:startSimulation()
     self.ballVx = math.random(COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MIN, COORDINATE_CONSTANTS.INITIAL_BALL_SPEED_MAX) -- Random velocity between 300-600 units/sec
     self.ballVy = COORDINATE_CONSTANTS.INITIAL_BALL_VERTICAL_SPEED -- Start with small downward velocity so ball falls immediately
     
-    -- Initialize block position and velocity (opposite direction to ball)
-    self.blockX = 0  -- Start at left edge
-    self.blockY = -10 -- Start at bottom (10 units tall, so covers -10 to 0)
-    self.blockVx = -COORDINATE_CONSTANTS.BLOCK_SPEED -- Move opposite to ball direction
-    DualPrint('Block initialized: X=' .. self.blockX .. ', Y=' .. self.blockY .. ', VX=' .. self.blockVx)
+    DualPrint("Ball initialized: X=" .. self.ballX .. ", Y=" .. self.ballY .. ", VX=" .. self.ballVx .. ", VY=" .. self.ballVy)
+    
+    -- Initialize all blocks with positions and velocities (opposite direction to ball)
+    for i = 1, #self.blocks do
+        local blockX = (i - 1) * COORDINATE_CONSTANTS.BLOCK_SPACING
+        local blockY = -10 -- Start at bottom (10 units tall, so covers -10 to 0)
+        local blockVx = -COORDINATE_CONSTANTS.BLOCK_SPEED -- Move opposite to ball direction
+        
+        self.blocks[i].x = blockX
+        self.blocks[i].y = blockY
+        self.blocks[i].vx = blockVx
+        
+        DualPrint('Block ' .. (i-1) .. ' initialized: X=' .. blockX .. ', Y=' .. blockY .. ', VX=' .. blockVx)
+    end
     
     -- Reset frame counter
     self.frameCounter = 0
     
     self.isSimulationRunning = true
-    DualPrint("Simulation started")
+    DualPrint("Simulation started successfully")
     return true
 end
 
@@ -372,29 +394,32 @@ function RouletteSpinner:processSimulationFrame(dt)
         return
     end
     
+    -- Debug dt value on first frame
+    if self.frameCounter == 0 then
+        DualPrint("First frame - dt: " .. tostring(dt))
+    end
+    
     -- Increment frame counter
     self.frameCounter = self.frameCounter + 1
     
-    -- Translate simulator coordinates to world coordinates and teleport the ball
-    local worldCoords = self:translateToWorldCoords(self.ballX, self.ballY)
-    if worldCoords and self.ballEntityID then
-        -- Teleport the ball to the new world position
-        local ballEntity = Game.FindEntityByID(self.ballEntityID)
-        if ballEntity then
-            local newPosition = Vector4.new(worldCoords.x, worldCoords.y, worldCoords.z, 1.0)
-            Game.GetTeleportationFacility():Teleport(ballEntity, newPosition, EulerAngles.new(0, 0, 0))
-        end
+    -- Fixed timestep physics (NEW!)
+    self.timeAccumulator = self.timeAccumulator + dt
+    
+    -- Clamp accumulator to prevent spiral of death
+    if self.timeAccumulator > COORDINATE_CONSTANTS.MAX_ACCUMULATOR then
+        self.timeAccumulator = COORDINATE_CONSTANTS.MAX_ACCUMULATOR
     end
     
-    -- Translate simulator coordinates to world coordinates and teleport the block
-    local blockWorldCoords = self:translateToWorldCoords(self.blockX, self.blockY)
-    if blockWorldCoords and self.blockEntityID then
-        -- Teleport the block to the new world position
-        local blockEntity = Game.FindEntityByID(self.blockEntityID)
-        if blockEntity then
-            local newPosition = Vector4.new(blockWorldCoords.x, blockWorldCoords.y, blockWorldCoords.z, 1.0)
-            Game.GetTeleportationFacility():Teleport(blockEntity, newPosition, EulerAngles.new(0, 0, 0))
-        end
+    -- Process physics with fixed timestep
+    while self.timeAccumulator >= COORDINATE_CONSTANTS.FIXED_TIMESTEP do
+        self:processFixedTimestep(COORDINATE_CONSTANTS.FIXED_TIMESTEP)
+        self.timeAccumulator = self.timeAccumulator - COORDINATE_CONSTANTS.FIXED_TIMESTEP
+    end
+    
+    -- Update entity positions less frequently to reduce jitter
+    if self.frameCounter - self.lastEntityUpdateFrame >= COORDINATE_CONSTANTS.ENTITY_UPDATE_INTERVAL then
+        self:updateEntityPositions()
+        self.lastEntityUpdateFrame = self.frameCounter
     end
     
     -- Check if we've reached 3000 frames (increased from 1000)
@@ -403,59 +428,113 @@ function RouletteSpinner:processSimulationFrame(dt)
         self.isSimulationRunning = false
         return
     end
+end
+
+-- Process physics with fixed timestep (NEW!)
+function RouletteSpinner:processFixedTimestep(fixedDt)
+    -- Debug output every 60 frames to track movement
+    if self.frameCounter % 60 == 0 then
+        DualPrint("Frame " .. self.frameCounter .. ": Ball at (" .. self.ballX .. ", " .. self.ballY .. ") vel(" .. self.ballVx .. ", " .. self.ballVy .. ")")
+        DualPrint("Frame " .. self.frameCounter .. ": Block 0 at (" .. self.blocks[1].x .. ", " .. self.blocks[1].y .. ") vel(" .. self.blocks[1].vx .. ")")
+        
+        -- Check block spacing every 300 frames
+        if self.frameCounter % 300 == 0 then
+            DualPrint("=== Block Spacing Check ===")
+            local simulationTime = self.frameCounter * COORDINATE_CONSTANTS.FIXED_TIMESTEP
+            DualPrint("Simulation time: " .. simulationTime .. " seconds")
+            for i = 1, math.min(5, #self.blocks) do -- Check first 5 blocks
+                local expectedX = (i - 1) * COORDINATE_CONSTANTS.BLOCK_SPACING
+                local actualX = self.blocks[i].x
+                local spacingError = math.abs(actualX - expectedX)
+                DualPrint(string.format("Block %d: Expected X=%.3f, Actual X=%.3f, Error=%.3f", 
+                    i-1, expectedX, actualX, spacingError))
+            end
+            DualPrint("=== End Spacing Check ===")
+        end
+    end
     
     -- Apply horizontal deceleration (faster deceleration)
     local horizontalDeceleration = COORDINATE_CONSTANTS.HORIZONTAL_DECELERATION -- units per second squared (increased from 20)
     if self.ballVx > 0 then
-        self.ballVx = math.max(0, self.ballVx - horizontalDeceleration * dt)
+        self.ballVx = math.max(0, self.ballVx - horizontalDeceleration * fixedDt)
     elseif self.ballVx < 0 then
-        self.ballVx = math.min(0, self.ballVx + horizontalDeceleration * dt)
+        self.ballVx = math.min(0, self.ballVx + horizontalDeceleration * fixedDt)
     end
     
     -- Apply gravity when horizontal velocity is low enough
     local gravityThreshold = COORDINATE_CONSTANTS.GRAVITY_THRESHOLD -- Start gravity when horizontal speed is below this
     if math.abs(self.ballVx) < gravityThreshold then
         local gravity = COORDINATE_CONSTANTS.GRAVITY * self.gravityModifier -- units per second squared
-        self.ballVy = self.ballVy - gravity * dt
+        self.ballVy = self.ballVy - gravity * fixedDt
     end
     
+    -- Store previous positions for collision detection
+    local prevBallX = self.ballX
+    local prevBallY = self.ballY
+    
     -- Update ball position
-    self.ballX = self.ballX + self.ballVx * dt
-    self.ballY = self.ballY + self.ballVy * dt
+    self.ballX = self.ballX + self.ballVx * fixedDt
+    self.ballY = self.ballY + self.ballVy * fixedDt
     
     -- Handle wall wrapping (right edge) - Fixed logic
     if self.ballX >= 360 then
         self.ballX = self.ballX - 360 -- Wrap to left side properly
     end
     
-    -- Update block position
-    self.blockX = self.blockX + self.blockVx * dt
-    
-    -- Handle block wall wrapping (left edge to right edge)
-    if self.blockX <= -COORDINATE_CONSTANTS.BLOCK_WIDTH then
-        self.blockX = 360 -- Wrap to right side
-        DualPrint('Block wrapped from left to right: X=' .. self.blockX)
-    end
-    
-    -- Synchronize spinner rotation with block position
-    -- Block moves from 0 to 360, so use X position directly as rotation value
-    local newSpinnerRotation = math.rad(self.blockX) -- Convert block X position directly to radians
-    
-    -- Debug output to see what's happening
-    DualPrint('Block X: ' .. self.blockX .. ', Rotation: ' .. math.deg(newSpinnerRotation) .. ' degrees')
-    
-    -- Update spinner entity rotation
-    if self.spinnerEntityID then
-        local spinnerEntity = Game.FindEntityByID(self.spinnerEntityID)
-        if spinnerEntity then
-            -- Apply rotation around Z-axis (spinner spins horizontally)
-            local newOrientation = EulerAngles.new(0, 0, math.deg(newSpinnerRotation))
-            Game.GetTeleportationFacility():Teleport(spinnerEntity, spinnerEntity:GetWorldPosition(), newOrientation)
+    -- Update block position using fixed timestep calculation to maintain perfect spacing
+    local simulationTime = self.frameCounter * COORDINATE_CONSTANTS.FIXED_TIMESTEP
+    for i = 1, #self.blocks do
+        -- Calculate position based on initial position and time
+        local initialX = (i - 1) * COORDINATE_CONSTANTS.BLOCK_SPACING
+        local currentX = initialX + (self.blocks[i].vx * simulationTime)
+        
+        -- Handle wrapping to maintain position in 0-360 range
+        while currentX < 0 do
+            currentX = currentX + 360
         end
+        while currentX >= 360 do
+            currentX = currentX - 360
+        end
+        
+        self.blocks[i].x = currentX
     end
     
-    -- Store the new rotation
-    self.spinnerRotation = newSpinnerRotation
+    -- Check for collision between ball and moving blocks
+    self:checkBallBlockCollision(prevBallX, prevBallY, fixedDt)
+    
+    -- Debug output for collision detection (every 60 frames)
+    if self.debugCollisions and self.frameCounter % 60 == 0 then
+        self:debugCollisionInfo()
+    end
+    
+    -- Update target spinner rotation (smooth interpolation)
+    self.targetSpinnerRotation = math.rad(self.blocks[1].x) -- Convert block X position directly to radians
+    
+    -- Smooth interpolation of spinner rotation to prevent jerky movement
+    local rotationDiff = self.targetSpinnerRotation - self.spinnerRotation
+    
+    -- Handle angle wrapping for smooth interpolation
+    if rotationDiff > math.pi then
+        rotationDiff = rotationDiff - 2 * math.pi
+    elseif rotationDiff < -math.pi then
+        rotationDiff = rotationDiff + 2 * math.pi
+    end
+    
+    -- Smooth interpolation towards target rotation
+    self.spinnerRotation = self.spinnerRotation + rotationDiff * COORDINATE_CONSTANTS.ROTATION_SMOOTHING_FACTOR
+    
+    -- Normalize rotation to 0-2π range
+    while self.spinnerRotation < 0 do
+        self.spinnerRotation = self.spinnerRotation + 2 * math.pi
+    end
+    while self.spinnerRotation >= 2 * math.pi do
+        self.spinnerRotation = self.spinnerRotation - 2 * math.pi
+    end
+    
+    -- Debug output to see what's happening (reduced frequency)
+    if self.frameCounter % 120 == 0 then
+        DualPrint('Block X: ' .. self.blocks[1].x .. ', Target Rotation: ' .. math.deg(self.targetSpinnerRotation) .. '°, Current Rotation: ' .. math.deg(self.spinnerRotation) .. '°')
+    end
     
     -- Handle ceiling collision (top edge)
     if self.ballY >= 100 then
@@ -485,6 +564,269 @@ function RouletteSpinner:processSimulationFrame(dt)
     end
 end
 
+-- Update entity positions (separated from physics to reduce jitter)
+function RouletteSpinner:updateEntityPositions()
+    -- Translate simulator coordinates to world coordinates and teleport the ball
+    local worldCoords = self:translateToWorldCoords(self.ballX, self.ballY)
+    if worldCoords and self.ballEntityID then
+        -- Teleport the ball to the new world position
+        local ballEntity = Game.FindEntityByID(self.ballEntityID)
+        if ballEntity then
+            local newPosition = Vector4.new(worldCoords.x, worldCoords.y, worldCoords.z, 1.0)
+            Game.GetTeleportationFacility():Teleport(ballEntity, newPosition, EulerAngles.new(0, 0, 0))
+        end
+    end
+    
+    -- Update block positions (no visual entities to teleport)
+    for i = 1, #self.blocks do
+        -- Debug 3D positions every 300 frames for first few blocks
+        if self.frameCounter % 300 == 0 and i <= 3 then
+            local blockWorldCoords = self:translateToWorldCoords(self.blocks[i].x, self.blocks[i].y)
+            if blockWorldCoords then
+                DualPrint(string.format("Block %d 3D: sim(%.1f, %.1f) -> world(%.3f, %.3f, %.3f)", 
+                    i-1, self.blocks[i].x, self.blocks[i].y, blockWorldCoords.x, blockWorldCoords.y, blockWorldCoords.z))
+            end
+        end
+    end
+    
+    -- Update spinner entity rotation (only when there's significant change)
+    if self.spinnerEntityID then
+        local spinnerEntity = Game.FindEntityByID(self.spinnerEntityID)
+        if spinnerEntity then
+            -- Apply rotation around Z-axis (spinner spins horizontally)
+            local newOrientation = EulerAngles.new(0, 0, math.deg(self.spinnerRotation))
+            Game.GetTeleportationFacility():Teleport(spinnerEntity, spinnerEntity:GetWorldPosition(), newOrientation)
+        end
+    end
+end
+
+-- Check for collision between ball and moving blocks
+function RouletteSpinner:checkBallBlockCollision(prevBallX, prevBallY, dt)
+    -- Check collision cooldown to prevent sticking
+    if self.frameCounter - self.lastCollisionFrame < self.collisionCooldown then
+        return
+    end
+    
+    -- Define the ball as a circle
+    local ball = {
+        x = self.ballX,
+        y = self.ballY,
+        radius = self.ballRadius
+    }
+    
+    -- Check for collision with any block
+    local collision = false
+    for i = 1, #self.blocks do
+        local block = {
+            x = self.blocks[i].x,
+            y = self.blocks[i].y,
+            width = COORDINATE_CONSTANTS.BLOCK_WIDTH,
+            height = COORDINATE_CONSTANTS.BLOCK_HEIGHT
+        }
+        
+        collision = CollisionCtR:checkCollision(ball, block)
+        if collision then
+            break
+        end
+    end
+    
+    if collision then
+        -- Handle collision response
+        self:handleBallBlockCollision(prevBallX, prevBallY, dt)
+    else
+        -- Check for tunneling (high-speed collision that might be missed)
+        local prevBall = {
+            x = prevBallX,
+            y = prevBallY,
+            radius = self.ballRadius
+        }
+        
+        local tunneling = false
+        for i = 1, #self.blocks do
+            local block = {
+                x = self.blocks[i].x,
+                y = self.blocks[i].y,
+                width = COORDINATE_CONSTANTS.BLOCK_WIDTH,
+                height = COORDINATE_CONSTANTS.BLOCK_HEIGHT
+            }
+            
+            tunneling = CollisionCtR:checkTunneling(prevBall, ball, block)
+            if tunneling then
+                break
+            end
+        end
+        
+        if tunneling then
+            -- Handle tunneling collision
+            self:handleBallBlockCollision(prevBallX, prevBallY, dt)
+        end
+    end
+end
+
+-- Handle collision response between ball and block
+function RouletteSpinner:handleBallBlockCollision(prevBallX, prevBallY, dt)
+    DualPrint("Ball collided with moving block!")
+    
+    -- Find the first colliding block
+    local collidingBlockIndex = nil
+    for i = 1, #self.blocks do
+        local block = {
+            x = self.blocks[i].x,
+            y = self.blocks[i].y,
+            width = COORDINATE_CONSTANTS.BLOCK_WIDTH,
+            height = COORDINATE_CONSTANTS.BLOCK_HEIGHT
+        }
+        
+        if CollisionCtR:checkCollision({x = self.ballX, y = self.ballY, radius = self.ballRadius}, block) then
+            collidingBlockIndex = i
+            break
+        end
+    end
+    
+    if not collidingBlockIndex then
+        DualPrint("Warning: No colliding block found!")
+        return
+    end
+    
+    local collidingBlock = self.blocks[collidingBlockIndex]
+    
+    -- Define the ball with velocity for collision response
+    local ball = {
+        x = self.ballX,
+        y = self.ballY,
+        radius = self.ballRadius,
+        vx = self.ballVx,
+        vy = self.ballVy
+    }
+    
+    -- Define the block edges for collision response
+    local leftEdge = {
+        x = collidingBlock.x,
+        vx = collidingBlock.vx,
+        isRight = false
+    }
+    
+    local rightEdge = {
+        x = collidingBlock.x + COORDINATE_CONSTANTS.BLOCK_WIDTH,
+        vx = collidingBlock.vx,
+        isRight = true
+    }
+    
+    local topEdge = {
+        y = collidingBlock.y + COORDINATE_CONSTANTS.BLOCK_HEIGHT,
+        vx = collidingBlock.vx
+    }
+    
+    -- Determine which edge the ball collided with and calculate response
+    local newVelocity = {vx = self.ballVx, vy = self.ballVy}
+    
+    -- Check horizontal edge collisions
+    if ball.x - ball.radius <= leftEdge.x then
+        -- Collision with left edge
+        newVelocity = CollisionCtR:calculateHorizontalEdgeCollisionVelocity(ball, leftEdge)
+        DualPrint("Ball collided with left edge of block " .. (collidingBlockIndex - 1))
+    elseif ball.x + ball.radius >= rightEdge.x then
+        -- Collision with right edge
+        newVelocity = CollisionCtR:calculateHorizontalEdgeCollisionVelocity(ball, rightEdge)
+        DualPrint("Ball collided with right edge of block " .. (collidingBlockIndex - 1))
+    end
+    
+    -- Check top edge collision
+    if ball.y + ball.radius >= topEdge.y then
+        local topCollisionVelocity = CollisionCtR:calculateTopEdgeCollisionVelocity(ball, topEdge)
+        -- Use the more significant collision response
+        if math.abs(topCollisionVelocity.vy) > math.abs(newVelocity.vy) then
+            newVelocity = topCollisionVelocity
+            DualPrint("Ball collided with top edge of block " .. (collidingBlockIndex - 1))
+        end
+    end
+    
+    -- Apply the new velocity with some energy loss
+    local energyLoss = 0.8 -- Retain 80% of velocity after collision
+    self.ballVx = newVelocity.vx * energyLoss
+    self.ballVy = newVelocity.vy * energyLoss
+    
+    -- Move ball slightly away from block to prevent sticking
+    local separationDistance = 0.5
+    if ball.x < collidingBlock.x + COORDINATE_CONSTANTS.BLOCK_WIDTH / 2 then
+        self.ballX = collidingBlock.x - self.ballRadius - separationDistance
+    else
+        self.ballX = collidingBlock.x + COORDINATE_CONSTANTS.BLOCK_WIDTH + self.ballRadius + separationDistance
+    end
+    
+    -- Handle wrapping for ball position after collision
+    if self.ballX < 0 then
+        self.ballX = self.ballX + 360
+    elseif self.ballX >= 360 then
+        self.ballX = self.ballX - 360
+    end
+    
+    -- Set collision cooldown
+    self.lastCollisionFrame = self.frameCounter
+end
+
+-- Debug function to show collision information
+function RouletteSpinner:debugCollisionInfo()
+    local ball = {
+        x = self.ballX,
+        y = self.ballY,
+        radius = self.ballRadius
+    }
+    
+    local collisionFound = false
+    for i = 1, #self.blocks do
+        local block = {
+            x = self.blocks[i].x,
+            y = self.blocks[i].y,
+            width = COORDINATE_CONSTANTS.BLOCK_WIDTH,
+            height = COORDINATE_CONSTANTS.BLOCK_HEIGHT
+        }
+        
+        local collision = CollisionCtR:checkCollision(ball, block)
+        if collision then
+            DualPrint(string.format("Debug - Ball: (%.1f, %.1f) r=%.1f, Block %d: (%.1f, %.1f) w=%.1f h=%.1f, Collision: YES", 
+                ball.x, ball.y, ball.radius, 
+                i-1, block.x, block.y, block.width, block.height))
+            collisionFound = true
+            break
+        end
+    end
+    
+    if not collisionFound then
+        DualPrint(string.format("Debug - Ball: (%.1f, %.1f) r=%.1f, No collision with any block", 
+            ball.x, ball.y, ball.radius))
+    end
+end
+
+-- Enable collision debugging
+function RouletteSpinner:enableCollisionDebug()
+    self.debugCollisions = true
+    DualPrint("Collision debugging enabled")
+end
+
+-- Disable collision debugging
+function RouletteSpinner:disableCollisionDebug()
+    self.debugCollisions = false
+    DualPrint("Collision debugging disabled")
+end
+
+-- Set rotation smoothing factor (NEW!)
+function RouletteSpinner:setRotationSmoothing(factor)
+    if factor < 0.01 or factor > 1.0 then
+        DualPrint("Error: Rotation smoothing factor must be between 0.01 and 1.0")
+        return false
+    end
+    
+    COORDINATE_CONSTANTS.ROTATION_SMOOTHING_FACTOR = factor
+    DualPrint("Rotation smoothing factor set to: " .. factor)
+    return true
+end
+
+-- Get current rotation smoothing factor (NEW!)
+function RouletteSpinner:getRotationSmoothing()
+    return COORDINATE_CONSTANTS.ROTATION_SMOOTHING_FACTOR
+end
+
 -- Determine the landing result based on x position
 function RouletteSpinner:determineLandingResult(x)
     -- Simple result determination based on x position
@@ -505,6 +847,10 @@ function RouletteSpinner:update(dt)
         
         -- Process simulation if running
         if self.isSimulationRunning then
+            -- Debug output every 300 frames to verify update is being called
+            if self.frameCounter % 300 == 0 then
+                DualPrint("Update called - Simulation running, frame: " .. self.frameCounter)
+            end
             self:processSimulationFrame(dt)
         end
     end
