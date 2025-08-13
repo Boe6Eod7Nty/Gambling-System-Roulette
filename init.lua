@@ -46,12 +46,22 @@ registerForEvent("onInit", function() --runs on file load
 end)
 
 registerForEvent('onUpdate', function(dt) --runs every frame
+    -- Debug output every 300 frames to see if onUpdate is being called
+    if spinner and spinner.frameCounter and spinner.frameCounter % 300 == 0 then
+        DualPrint("Main onUpdate called - inMenu: " .. tostring(inMenu) .. ", inGame: " .. tostring(inGame))
+    end
+    
     if not inMenu and inGame then
         Cron.Update(dt) -- This is required for Cron to function
         
         -- Update the spinner if it exists
         if spinner then
             spinner:update(dt)
+        end
+    else
+        -- Debug output when conditions are not met
+        if spinner and spinner.frameCounter and spinner.frameCounter % 300 == 0 then
+            DualPrint("Main onUpdate - conditions not met: inMenu=" .. tostring(inMenu) .. ", inGame=" .. tostring(inGame))
         end
     end
 end)
