@@ -1,5 +1,9 @@
--- Roulette v1.0.15
--- init.lua v1.1.0
+Roulette = {
+    version = '1.0.15',
+    initVersion = '1.1.0',
+    loaded = true,
+    ready = false
+}
 --===================
 --CODE BY Boe6
 --DO NOT DISTRIBUTE
@@ -64,10 +68,6 @@ local RouletteAnimations = require("RouletteAnimations.lua")
 
 --'global' variables (uncategorized)
 --==================
-MyMod = {
-    loaded = true,
-    ready = false
-}
 local areaInitialized = false --defines if a roulette table is currently loaded
 local cronCount = 0
 local chipRotation = 315 -- defines how the player stack hex grid is aligned
@@ -1358,4 +1358,4 @@ end
 
 --DuelPrint('[log] init.lua loaded, Time: '..tostring(os.time()))
 --DuelPrint('-=- Welcome to Roulette by Boe6! -=- Current Unix Time: '..os.time())
-return MyMod
+return Roulette

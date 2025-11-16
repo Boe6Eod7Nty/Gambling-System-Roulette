@@ -1,8 +1,13 @@
--- chipUtils.lua
--- Shared utility functions for chip pile management
--- Handles entity management, coordinate conversion, and stack layout logic
-
-ChipUtils = {}
+ChipUtils = {
+    version = '1.0.0'
+}
+--===================
+--CODE BY Boe6
+--DO NOT DISTRIBUTE
+--DO NOT COPY/REUSE WITHOUT EXPRESS PERMISSION
+--DO NOT REUPLOAD TO OTHER SITES
+--Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
+--===================
 
 -- Dependencies (will be set via Initialize)
 local Cron = nil

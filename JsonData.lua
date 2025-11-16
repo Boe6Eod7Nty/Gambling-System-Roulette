@@ -6,7 +6,8 @@ JsonData = {
 --DO NOT DISTRIBUTE
 --DO NOT COPY/REUSE WITHOUT EXPRESS PERMISSION
 --DO NOT REUPLOAD TO OTHER SITES
---Feel free to ask via 
+--Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
+--=================== 
 
 function JsonData.ReturnAllFromFolder(folder)
     local result = {}

@@ -4,8 +4,6 @@ TableManager = {
     dealerEntIDs = {}, -- Track dealer entity IDs per table: dealerEntIDs[tableID] = entID
     dealerSpawned = {} -- Track spawn state per table: dealerSpawned[tableID] = true/false
 }
-
-local GameLocale = require("External/GameLocale.lua")
 --===================
 --CODE BY Boe6
 --DO NOT DISTRIBUTE
@@ -13,6 +11,8 @@ local GameLocale = require("External/GameLocale.lua")
 --DO NOT REUPLOAD TO OTHER SITES
 --Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
 --===================
+
+local GameLocale = require("External/GameLocale.lua")
 
 ---Initializes the TableManager
 function TableManager.init()

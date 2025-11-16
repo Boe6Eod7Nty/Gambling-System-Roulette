@@ -2,9 +2,6 @@ HolographicValueDisplay = {
     version = '1.0.3',
     digits = {}
 }
-
--- Import Cron for optimized timing
-local Cron = require('External/Cron.lua')
 --===================
 --CODE BY Boe6
 --DO NOT DISTRIBUTE
@@ -12,6 +9,9 @@ local Cron = require('External/Cron.lua')
 --DO NOT REUPLOAD TO OTHER SITES
 --Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
 --===================
+
+-- Import Cron for optimized timing
+local Cron = require('External/Cron.lua')
 
 local chipsStackHoloProjector = "boe6\\gamblingsystemblackjack\\q303_chips_stacks_edit.ent"
 local holographicDigit = "boe6\\gamblingsystemblackjack\\boe6_number_digit.ent"

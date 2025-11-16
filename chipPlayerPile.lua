@@ -1,7 +1,13 @@
--- chipPlayerPile.lua
--- Functions for managing the player's chip pile
-
-ChipPlayerPile = {}
+ChipPlayerPile = {
+    version = '1.0.0'
+}
+--===================
+--CODE BY Boe6
+--DO NOT DISTRIBUTE
+--DO NOT COPY/REUSE WITHOUT EXPRESS PERMISSION
+--DO NOT REUPLOAD TO OTHER SITES
+--Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
+--===================
 
 -- Dependencies (will be set via Initialize)
 local ChipUtils = nil

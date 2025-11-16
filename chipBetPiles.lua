@@ -1,7 +1,13 @@
--- chipBetPiles.lua
--- Functions for managing bet piles (chips placed on the roulette table)
-
-ChipBetPiles = {}
+ChipBetPiles = {
+    version = '1.0.0'
+}
+--===================
+--CODE BY Boe6
+--DO NOT DISTRIBUTE
+--DO NOT COPY/REUSE WITHOUT EXPRESS PERMISSION
+--DO NOT REUPLOAD TO OTHER SITES
+--Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
+--===================
 
 -- Dependencies (will be set via Initialize)
 local ChipUtils = nil

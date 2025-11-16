@@ -1,8 +1,15 @@
--- RouletteAnimations.lua
--- Animation module for roulette wheel and ball
--- Extracted from init.lua
-
-RouletteAnimations = {}
+RouletteAnimations = {
+    version = '1.0.0',
+    roulette_spinning = false,
+    ball_spinning = false
+}
+--===================
+--CODE BY Boe6
+--DO NOT DISTRIBUTE
+--DO NOT COPY/REUSE WITHOUT EXPRESS PERMISSION
+--DO NOT REUPLOAD TO OTHER SITES
+--Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
+--===================
 
 -- Module state
 local initialized = false
