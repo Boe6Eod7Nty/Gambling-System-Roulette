@@ -13,9 +13,9 @@ local interactionUI = require("External/interactionUI.lua")
 local GameLocale = require("External/GameLocale.lua")
 
 -- Note: This module depends on variables and functions from init.lua:
--- playerPile, currentBets, previousBet, previousBetAvailable, previousBetsCost
+-- currentBets, previousBet, previousBetAvailable, previousBetsCost
 -- betsPlacesTaken, queueUIBet, betCategories, betCategoryIndexes
--- chip_values, betSizingSets, PlaceBet(), RepeatBets(), ChangePlayerChipValue()
+-- chip_values, betSizingSets, PlaceBet(), RepeatBets()
 -- AddValueCommas(), roulette_spinning, ball_spinning, holographicDisplayActive
 -- HolographicValueDisplay, tableCenterPoint, activeTable, RotatePoint()
 -- showCustomBuyChips, showCustomBetChips
@@ -54,6 +54,7 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
     local cashOutFont = gameinteractionsChoiceType.AlreadyRead
     local cashOutFontBool = false
 
+    local playerPile = ChipPlayerPile.GetPlayerPile()
     if previousBetAvailable and previousBetsCost <= playerPile.value then
         repeatFont = gameinteractionsChoiceType.Selected
         repeatFontBool = true
@@ -115,8 +116,9 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
             --DuelPrint("Choice 6 used")
             if cashOutFontBool then
                 interactionUI.hideHub()
+                local playerPile = ChipPlayerPile.GetPlayerPile()
                 Game.AddToInventory("Items.money", playerPile.value)
-                ChangePlayerChipValue(-(playerPile.value))
+                ChipPlayerPile.ChangePlayerChipValue(-(playerPile.value))
                 
                 -- Stop holographic display when player leaves table
                 if holographicDisplayActive then
@@ -1007,6 +1009,7 @@ end
 ---Bet Value UI
 function RouletteMainMenu.BetValueUI()
     --should be updated to relative to player value, see notes. values worked out already
+    local playerPile = ChipPlayerPile.GetPlayerPile()
     local playerMoney = playerPile.value
     local betSizing = {1, 50, 1000, 50000, 1000000}
     if playerMoney <= 1000 then
@@ -1107,7 +1110,7 @@ function RouletteMainMenu.BuyChipsUI()
             local index = 1
             if availableValues[index] == true then
                 interactionUI.hideHub()
-                ChangePlayerChipValue(buyValues[index])
+                ChipPlayerPile.ChangePlayerChipValue(buyValues[index])
                 Game.AddToInventory("Items.money", -(buyValues[index]) )
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
@@ -1118,7 +1121,7 @@ function RouletteMainMenu.BuyChipsUI()
             local index = 2
             if availableValues[index] == true then
                 interactionUI.hideHub()
-                ChangePlayerChipValue(buyValues[index])
+                ChipPlayerPile.ChangePlayerChipValue(buyValues[index])
                 Game.AddToInventory("Items.money", -(buyValues[index]) )
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
@@ -1129,7 +1132,7 @@ function RouletteMainMenu.BuyChipsUI()
             local index = 3
             if availableValues[index] == true then
                 interactionUI.hideHub()
-                ChangePlayerChipValue(buyValues[index])
+                ChipPlayerPile.ChangePlayerChipValue(buyValues[index])
                 Game.AddToInventory("Items.money", -(buyValues[index]) )
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
@@ -1140,7 +1143,7 @@ function RouletteMainMenu.BuyChipsUI()
             local index = 4
             if availableValues[index] == true then
                 interactionUI.hideHub()
-                ChangePlayerChipValue(buyValues[index])
+                ChipPlayerPile.ChangePlayerChipValue(buyValues[index])
                 Game.AddToInventory("Items.money", -(buyValues[index]) )
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
@@ -1151,7 +1154,7 @@ function RouletteMainMenu.BuyChipsUI()
             local index = 5
             if availableValues[index] == true then
                 interactionUI.hideHub()
-                ChangePlayerChipValue(buyValues[index])
+                ChipPlayerPile.ChangePlayerChipValue(buyValues[index])
                 Game.AddToInventory("Items.money", -(buyValues[index]) )
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
@@ -1162,7 +1165,7 @@ function RouletteMainMenu.BuyChipsUI()
             local index = 6
             if availableValues[index] == true then
                 interactionUI.hideHub()
-                ChangePlayerChipValue(buyValues[index])
+                ChipPlayerPile.ChangePlayerChipValue(buyValues[index])
                 Game.AddToInventory("Items.money", -(buyValues[index]) )
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
