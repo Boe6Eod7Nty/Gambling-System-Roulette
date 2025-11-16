@@ -2351,27 +2351,125 @@ function RemoveBetStack()
             DuelPrint('=w ERROR! v is nil, index: '..i..' v: '..v..' indexCount: '..indexCount..', error code: 0046')
         end
         local localPile = betsPiles[v]
-        if next(localPile.stacksInfo) == nil then --if pile is empty
+        if localPile == nil then
+            table.insert(idToRemove, v)
+            indexCount = indexCount + 1
+        elseif next(localPile.stacksInfo) == nil then --if pile is empty
             betsPiles[v] = nil
             table.insert(idToRemove, v)
             indexCount = indexCount + 1
         else
-            local stackCount = 0
-            for i, v in ipairs(localPile.stacksInfo) do
-                stackCount = stackCount + 1
+            -- Find which color/index has chips to remove (find highest index with chips)
+            local localIndex = nil
+            for cIndex = 16, 1, -1 do
+                if localPile.singleStacks[cIndex] > 0 or localPile.fullStacks[cIndex] > 0 then
+                    localIndex = cIndex
+                    break
+                end
             end
-            local localChips = localPile.stacksInfo[stackCount]
-            local entDevName = localChips.stackDevName
-            local entColor = localChips.cIndex
-            local chipsInEnt = localPile.singleStacks[entColor]
-            localPile.singleStacks[entColor] = chipsInEnt - 1
-            if localPile.singleStacks[entColor] == 0 then
-                DeRegisterEntity(entDevName)
-                table.remove(localPile.stacksInfo, stackCount)
+            
+            if localIndex == nil then
+                -- No chips found, mark for removal
+                betsPiles[v] = nil
+                table.insert(idToRemove, v)
+                indexCount = indexCount + 1
             else
-                local appearance = (tostring(chipsInEnt - 1)..'_'..chip_colors[entColor])
-                local entity = Game.FindEntityByID(FindEntIdByName(entDevName))
-                entity:ScheduleAppearanceChange(appearance) --updates entity's appearance
+                -- Find the stack in stacksInfo that matches the color we want to remove from
+                -- Calculate expected devName using same logic as addition
+                local betID = localPile.id
+                local expectedDevName = (betID
+                                    ..'_c' --"color"
+                                    ..tostring(localIndex)
+                                    ..'_s'
+                                    ..localPile.fullStacks[localIndex]
+                                    ..'_chips'
+                                )
+                
+                -- Find matching stack in stacksInfo
+                local foundStack = nil
+                local foundStackIndex = nil
+                for j, k in ipairs(localPile.stacksInfo) do
+                    if k.cIndex == localIndex and k.stackDevName == expectedDevName then
+                        foundStack = k
+                        foundStackIndex = j
+                        break
+                    end
+                end
+                
+                -- If exact match not found, find any stack of this color (fallback)
+                if not foundStack then
+                    for j, k in ipairs(localPile.stacksInfo) do
+                        if k.cIndex == localIndex then
+                            foundStack = k
+                            foundStackIndex = j
+                            -- Use the actual devName from the stack
+                            expectedDevName = k.stackDevName
+                            break
+                        end
+                    end
+                end
+                
+                if not foundStack then
+                    -- Stack not found in stacksInfo, mark pile for removal
+                    betsPiles[v] = nil
+                    table.insert(idToRemove, v)
+                    indexCount = indexCount + 1
+                else
+                    local locDevName = expectedDevName
+                    local currentSingleAmount = localPile.singleStacks[localIndex]
+                    local newApp = currentSingleAmount - 1
+                    
+                    if newApp < 0 then
+                        -- Need to move from fullStacks to singleStacks
+                        if localPile.fullStacks[localIndex] > 0 then
+                            localPile.fullStacks[localIndex] = localPile.fullStacks[localIndex] - 1
+                            localPile.singleStacks[localIndex] = 9
+                            -- Recalculate devName for the new fullStacks value
+                            locDevName = (betID..'_c'..tostring(localIndex)..'_s'..localPile.fullStacks[localIndex]..'_chips')
+                            -- Update the entity appearance
+                            local entity = Game.FindEntityByID(FindEntIdByName(locDevName))
+                            if entity then
+                                local appearance = (tostring(9)..'_'..chip_colors[localIndex])
+                                entity:ScheduleAppearanceChange(appearance)
+                            end
+                        else
+                            -- No more chips of this color, remove the stack
+                            DeRegisterEntity(locDevName)
+                            table.remove(localPile.stacksInfo, foundStackIndex)
+                            localPile.singleStacks[localIndex] = 0
+                        end
+                    elseif newApp == 0 then
+                        -- Stack is now empty, remove it
+                        if localPile.fullStacks[localIndex] > 0 then
+                            -- Move to next full stack
+                            localPile.fullStacks[localIndex] = localPile.fullStacks[localIndex] - 1
+                            localPile.singleStacks[localIndex] = 10
+                            -- Recalculate devName for the new fullStacks value
+                            locDevName = (betID..'_c'..tostring(localIndex)..'_s'..localPile.fullStacks[localIndex]..'_chips')
+                            -- Update entity to show 10 chips
+                            local entity = Game.FindEntityByID(FindEntIdByName(locDevName))
+                            if entity then
+                                local appearance = (tostring(10)..'_'..chip_colors[localIndex])
+                                entity:ScheduleAppearanceChange(appearance)
+                            end
+                        else
+                            -- No more stacks of this color, remove entity
+                            DeRegisterEntity(locDevName)
+                            table.remove(localPile.stacksInfo, foundStackIndex)
+                            localPile.singleStacks[localIndex] = 0
+                        end
+                    else
+                        -- Just decrement the count
+                        localPile.singleStacks[localIndex] = newApp
+                        local appearance = (tostring(newApp)..'_'..chip_colors[localIndex])
+                        local entity = Game.FindEntityByID(FindEntIdByName(locDevName))
+                        if entity then
+                            entity:ScheduleAppearanceChange(appearance) --updates entity's appearance
+                        end
+                    end
+                    
+                    localPile.chipCount = localPile.chipCount - 1
+                end
             end
         end
     end
@@ -2384,7 +2482,9 @@ function RemoveBetStack()
             end
         end
         --local flipIndex = -i+indexCount+1 --nice code to flip index in a loop, I'll use it a lot, likely
-        table.remove(betsPilesToRemove, matchIndex)
+        if matchIndex then
+            table.remove(betsPilesToRemove, matchIndex)
+        end
     end
 end
 
