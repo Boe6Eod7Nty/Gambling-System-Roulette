@@ -16,9 +16,10 @@ local GameLocale = require("External/GameLocale.lua")
 -- currentBets, previousBet, previousBetAvailable, previousBetsCost
 -- betsPlacesTaken, queueUIBet, betCategories, betCategoryIndexes
 -- chip_values, betSizingSets, PlaceBet(), RepeatBets()
--- AddValueCommas(), roulette_spinning, ball_spinning, holographicDisplayActive
+-- AddValueCommas(), holographicDisplayActive
 -- HolographicValueDisplay, tableCenterPoint, activeTable, RotatePoint()
 -- showCustomBuyChips, showCustomBetChips
+-- Animation flags: Use RouletteAnimations.roulette_spinning and RouletteAnimations.ball_spinning
 
 ---interactionUI wrapper function
 ---@param choiceCount number
@@ -97,8 +98,7 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
         function() --"Spin Roulette Wheel"
             --DuelPrint("Choice 3 used")
             interactionUI.hideHub()
-            roulette_spinning = true
-            ball_spinning = true
+            RouletteAnimations.StartSpin()
         
             Game.GetPlayer():PlaySoundEvent("q303_hotel_casino_roulette_ball_start")
         end,
