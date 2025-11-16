@@ -48,6 +48,7 @@ local GameUI = require("External/GameUI.lua")
 local utils = require("External/workspotUtils.lua")
 local GameLocale = require("External/GameLocale.lua")
 local GameSession = require('External/GameSession.lua')
+local HolographicValueDisplay = require("HolographicValueDisplay.lua")
 
 
 --Modules
@@ -329,15 +330,8 @@ local betsPlacesTaken = {
 }
 
 -- Holographic value display variables
-local valueHolographic = {
-    visible = false,
-    value = 0,
-    valueDue = 0,
-    position = {x=-1033.905,y=1339.820,z=6.45}
-}
-local holographicDisplayAngle = ( ( math.atan2(valueHolographic.position.y - playerPlayingPosition.y, valueHolographic.position.x - playerPlayingPosition.x) ) * 180 / math.pi ) - 90
-local holographicDisplayAngleRad = holographicDisplayAngle * math.pi / 180
-local holographicDisplayLetterSpacing = 0.03
+local holographicDisplayActive = false
+local holographicDisplayPosition = nil
 local subtractionValueLoopCount = 0
 
 --winning result holo
@@ -393,7 +387,6 @@ local callback40x = function()
     --MoveEnt('chips1', {x=0, y=0.01, z=0})
     if ball_spinning then AdvanceRouletteBall() end --check if roulette ball should be spinning
     if roulette_spinning then AdvanceSpinner() end --check if roulette wheel should be spinning
-    if valueHolographic.visible then UpdateHolographicValues(cronCount) end
     gameLoadDelayCount = gameLoadDelayCount + 1
 
 
@@ -487,6 +480,11 @@ registerForEvent('onUpdate', function(dt) --runs every frame
         Cron.Update(dt) -- This is required for Cron to function
         interactionUI.update()
         world.update()
+        
+        -- Update holographic display every frame (like blackjack implementation)
+        if holographicDisplayActive then
+            HolographicValueDisplay.Update(playerPile.value or 0)
+        end
     end
     if buttonCustomNumberPressed then
         local inputValue = tonumber(inputText)
@@ -611,23 +609,12 @@ function InitTable(table)
     playerPile.location = {x=pilexy.x, y=pilexy.y, z=table.SpinnerCenterPoint.z + 0.09668642}
 
 
-    local chipStackxy = RotatePoint({x=table.SpinnerCenterPoint.x, y=table.SpinnerCenterPoint.y}, {x=table.SpinnerCenterPoint.x +0.1797707097, y=table.SpinnerCenterPoint.y -0.5589864607}, table.tableRotation)
-    RegisterEntity('player_chip_stacks', chip_stacks, 'default', {x=chipStackxy.x,y=chipStackxy.y,z=table.SpinnerCenterPoint.z+0.08668642}) --holographic value projector's mesh --{x=-1033.905,y=1339.820,z=6.3}
-
     local playerPositionxy = RotatePoint({x=table.SpinnerCenterPoint.x, y=table.SpinnerCenterPoint.y}, {x=table.SpinnerCenterPoint.x -0.80787625665175, y=table.SpinnerCenterPoint.y -1.085349415275}, table.tableRotation)
     playerPlayingPosition = {x=playerPositionxy.x, y=playerPositionxy.y, z=table.SpinnerCenterPoint.z -0.93531358}
 
+    -- Holographic display position (same location as old chip_stacks stand, HolographicValueDisplay will spawn its own stand)
     local holoPositionxy = RotatePoint({x=table.SpinnerCenterPoint.x, y=table.SpinnerCenterPoint.y}, {x=table.SpinnerCenterPoint.x +0.17977070965503, y=table.SpinnerCenterPoint.y -0.55898646070364}, table.tableRotation)
-    valueHolographic.position = {x=holoPositionxy.x,y=holoPositionxy.y,z=table.SpinnerCenterPoint.z+0.23668642}
-
-    holographicDisplayAngle = ( ( math.atan2(valueHolographic.position.y - playerPlayingPosition.y, valueHolographic.position.x - playerPlayingPosition.x) ) * 180 / math.pi ) - 90
-    holographicDisplayAngleRad = holographicDisplayAngle * math.pi / 180
-    valueHolographic.visible = true
-    RegisterEntity('player_value_digit_1', number_digit, '0', valueHolographic.position)
-    local callback = function() 
-        SetRotateEnt('player_value_digit_1', {r=0, p=0, y=holographicDisplayAngle})
-    end
-    Cron.After(0.1, callback)
+    holographicDisplayPosition = {x=holoPositionxy.x, y=holoPositionxy.y, z=table.SpinnerCenterPoint.z+0.08668642}
 
     holoDisplayAngle = ( ( math.atan2(tableCenterPoint.y - playerPlayingPosition.y, tableCenterPoint.x - tableCenterPoint.x) ) * 180 / math.pi ) + 225
     holoDisplayAngleRad = holoDisplayAngle * math.pi / 180
@@ -643,8 +630,12 @@ function DespawnTable() --despawns ents and resets script variables
     DeRegisterEntity('roulette_spinner')
     DeRegisterEntity('roulette_spinner_frame')
     DeRegisterEntity('roulette_ball')
-    DeRegisterEntity('player_chip_stacks')
-    DeRegisterEntity('player_value_digit_1')
+    
+    -- Stop holographic display if active (this will despawn the stand entity)
+    if holographicDisplayActive then
+        HolographicValueDisplay.stopDisplay()
+        holographicDisplayActive = false
+    end
 
     for i, v in ipairs(currentBets) do
         local localPile = betsPiles[v.id]
@@ -709,9 +700,8 @@ function DespawnTable() --despawns ents and resets script variables
             {false},
             {false}
         }
-        valueHolographic.visible = false
-        valueHolographic.value = 0
-        valueHolographic.valueDue = 0
+        holographicDisplayActive = false
+        holographicDisplayPosition = nil
         showCustomBuyChips = false
         showCustomBetChips = false
         buttonCustomNumberPressed = false
@@ -744,12 +734,26 @@ function DeRegisterEntity(devName) -- delete and remove entity from local system
     local entity = Game.FindEntityByID(FindEntIdByName(devName))
     if entity == nil then
         --DuelPrint('=q entity is nil')
+        -- Remove from entRecords even if entity is nil
+        local foundMatch = 1
+        while foundMatch > 0 do
+            foundMatch = 1
+            for i,v in ipairs(entRecords) do
+                if v.name == devName then
+                    table.remove(entRecords, i)
+                    foundMatch = 2
+                    break
+                end
+            end
+            if foundMatch == 1 then
+                foundMatch = 0
+            end
+        end
+        return
     end
     local currentPos = entity:GetWorldPosition()
     --DuelPrint('=q entity pos pre  x: '..currentPos.x..' y: '..currentPos.y..' z: '..currentPos.z)
     Despawn(FindEntIdByName(devName))
-    local grabbedPosAgain = entity:GetWorldPosition()
-    --DuelPrint('=q entity pos post x: '..grabbedPosAgain.x..' y: '..grabbedPosAgain.y..' z: '..grabbedPosAgain.z)
 
     local foundMatch = 1
     while foundMatch > 0 do
@@ -866,137 +870,18 @@ function ChangePlayerChipValue(valueModifier) --add or subtract valueModifier to
     if valueModifier == 0 then
         return
     elseif valueModifier > 0 then
-        valueHolographic.valueDue = valueHolographic.valueDue + valueModifier
         ValueToPileQueueSimple(playerPile, pileQueue, valueModifier)
         playerPile.value = playerPile.value + valueModifier
     elseif valueModifier < 0 then
         local valueInverted = valueModifier * -1
         ValueToQueueSubtraction(playerPile, valueInverted)
-        valueHolographic.valueDue = valueHolographic.valueDue - valueInverted
         playerPile.value = playerPile.value - valueInverted
     end
+    
+    -- Note: HolographicValueDisplay.Update() is now called every frame in onUpdate
+    -- No need to call it here since the frame-based update will handle it
 end
 
-function UpdateHolographicValues(cronCount) --Check valueHolographic.valueDue and update holographic display to match
-    if valueHolographic.valueDue == 0 then --exit if no change needed
-        return
-    end
-
-    local startValue = valueHolographic.value
-    local valueDue = valueHolographic.valueDue
-    local divideValue = 25
-    local split = math.floor(valueDue / divideValue) --divisor value can be changed to make value update slower/faster
-    if valueDue > 0 then --forces change when value is smaller than divideValue
-        split = split + 1
-    else
-        split = split -1
-    end
-    local newValue = startValue + split
-    local startString = tostring(startValue)
-    local newString = tostring(newValue)
-    local startLength = string.len(startString)
-    local newLength = string.len(newString)
-    local centerPos = valueHolographic.position
-    local indexReversed = {}
-    for i=1, newLength do
-        indexReversed[i] = newLength - i + 1
-    end
-    local indexReversedStart = {}
-    for i=1, startLength do
-        indexReversedStart[i] = startLength - i + 1
-    end
-    local newDigitCount = newLength - startLength
-    local digitPositions = {}
-    local shorterLength = 0
-    if newLength < startLength then
-        shorterLength = newLength
-    else
-        shorterLength = startLength
-    end
-
-    if newLength ~= startLength or cronCount %10 == 0 then
-        --for every digit in new string, find xyz coords and store them in a table
-        local mean = ((newLength*newLength + newLength)/2)/newLength --find "average" value of 1-X, used to shift center of holo text
-        --DuelPrint('=G newLength: '..newLength..' startLength: '..startLength..' newLegth mean: '..mean)
-        for i=1, newLength do
-            local shiftedPosition = i - mean
-            local distance = ( -shiftedPosition ) * holographicDisplayLetterSpacing
-            local newX = distance * math.cos(holographicDisplayAngleRad)
-            local newY = distance * math.sin(holographicDisplayAngleRad)
-            local newZ = 0
-            --DuelPrint('=G i: '..i..' shiftedPosition: '..shiftedPosition..' distance: '..distance..' newX: '..newX..' newY: '..newY)
-            digitPositions[i] = {x=newX, y=newY, z=newZ} --xyz of positions relative to hologram text center
-        end
-
-        --for every kept digit, teleport to their new shifted coords
-        for i=1, shorterLength do
-            local newPos = { --add relative coords and holo center coords for teleport
-                x=digitPositions[i].x + centerPos.x,
-                y=digitPositions[i].y + centerPos.y,
-                z=digitPositions[i].z + centerPos.z
-            }
-            local newPosVector = Vector4.new(newPos.x, newPos.y, newPos.z, 1)
-            local newAngle = EulerAngles.new(0, 0, holographicDisplayAngle)
-            local entity = Game.FindEntityByID(FindEntIdByName('player_value_digit_'..i))
-            --DuelPrint('=G try teleporting player_value_digit_'..i..' to '..tostring(newPos.x)..' '..tostring(newPos.y))
-            Game.GetTeleportationFacility():Teleport(entity, newPosVector, newAngle)
-        end
-    end
-    if newLength > startLength then
-        --for every digit that is new, spawn entity at their new coords
-        for i=1, newDigitCount do
-            local letter = string.sub(newString,indexReversed[i+startLength],indexReversed[i+startLength]) --grab single digit from string for appearance
-            local pos = { --add relative coords and holo center coords for spawn
-                x=digitPositions[i+startLength].x + centerPos.x,
-                y=digitPositions[i+startLength].y + centerPos.y,
-                z=centerPos.z
-            }
-            --DuelPrint('=G -- spawning player_value_digit_'..(i+startLength)..' at '..tostring(pos.x)..' '..tostring(pos.y))
-            RegisterEntity('player_value_digit_'..(i+startLength), number_digit, letter, pos)
-            local callback = function()
-                SetRotateEnt('player_value_digit_'..(i+startLength), {r=0, p=0, y=holographicDisplayAngle})
-            end
-            Cron.After(0.1, callback)
-        end
-    elseif newLength < startLength then
-        --for every digit that needs to be despawned, despawn
-        for i=1, -(newDigitCount) do
-            DeRegisterEntity('player_value_digit_'..(i+newLength))
-        end
-    end
-    --update appearances of kept digits
-    for i=1, shorterLength do
-        local newLetter = string.sub(newString,indexReversed[i],indexReversed[i])
-        local startLetter = string.sub(startString,indexReversedStart[i],indexReversedStart[i])
-        if newLetter ~= startLetter then --if digit changed, update appearance
-            local entity = Game.FindEntityByID(FindEntIdByName('player_value_digit_'..i))
-            if entity then
-                entity:ScheduleAppearanceChange(newLetter)
-            end
-        end
-    end
-    if newLength ~= startLength then
-        --debug digit positions
-        --DuelPrint('=G check all digit locations w/ delay')
-        for i=1, newLength do
-            local callback = function()
-                --DuelPrint('=G player_value_digit_'..i..', i: '..i..', newLength: '..newLength)
-                local entity = Game.FindEntityByID(FindEntIdByName('player_value_digit_'..i))
-                local ent = entity:GetWorldPosition()
-                --DuelPrint('=G player_value_digit_'..i..' at '..tostring(ent.x)..' '..tostring(ent.y))
-            end
-            if i > startLength and i <= newLength then
-                Cron.After(1, callback)
-            else
-                callback()
-            end
-        end
-    end
-
-    valueHolographic.valueDue = valueDue - split
-    valueHolographic.value = newValue
-
-end
 
 function ShowHoloResult(number, color)
     showingHoloResult = true
@@ -2761,6 +2646,19 @@ function UpdateJoinUI(showUI) --show or hide join UI depending on.. something, i
                 --local orientation = playerTransform:GetOrientation()
                 local joinLocationxy = RotatePoint({x=tableCenterPoint.x, y=tableCenterPoint.y}, {x=tableCenterPoint.x-0.80787625665175, y=tableCenterPoint.y-1.085349415275}, activeTable.tableRotation)
                 Game.GetTeleportationFacility():Teleport(GetPlayer(), Vector4.new(joinLocationxy.x, joinLocationxy.y, tableCenterPoint.z-0.93531358, 1), EulerAngles.new(0, 0, 340+activeTable.tableRotation)) -- Vector4.new(-1034.435, 1340.8057, 5.278, 1)
+                
+                -- Start holographic display when player joins table
+                if holographicDisplayPosition and not holographicDisplayActive then
+                    local holoPos = Vector4.new(holographicDisplayPosition.x, holographicDisplayPosition.y, holographicDisplayPosition.z, 1)
+                    -- Calculate facing direction quaternion
+                    -- Original formula: atan2(holo.y - player.y, holo.x - player.x) * 180/pi - 90
+                    -- Module adds 180 degrees internally, so we subtract 180 to compensate
+                    local holoDisplayAngle = ((math.atan2(holographicDisplayPosition.y - playerPlayingPosition.y, holographicDisplayPosition.x - playerPlayingPosition.x)) * 180 / math.pi) - 90 - 180
+                    local facingQuaternion = EulerAngles.new(0, 0, holoDisplayAngle):ToQuat()
+                    HolographicValueDisplay.startDisplay(holoPos, facingQuaternion)
+                    holographicDisplayActive = true
+                end
+                
                 MainMenuUI()
                 inRouletteTable = true
             end
@@ -2859,6 +2757,13 @@ function MainMenuUI() -- original function code by keanuwheeze
                 interactionUI.hideHub()
                 Game.AddToInventory("Items.money", playerPile.value)
                 ChangePlayerChipValue(-(playerPile.value))
+                
+                -- Stop holographic display when player leaves table
+                if holographicDisplayActive then
+                    HolographicValueDisplay.stopDisplay()
+                    holographicDisplayActive = false
+                end
+                
                 local leavePositionxy = RotatePoint({x=tableCenterPoint.x, y=tableCenterPoint.y}, {x=tableCenterPoint.x-0.86706985804199, y=tableCenterPoint.y-1.3005326803182}, activeTable.tableRotation)
                 Game.GetTeleportationFacility():Teleport(GetPlayer(), Vector4.new(leavePositionxy.x, leavePositionxy.y, tableCenterPoint.z-0.93531358, 1), EulerAngles.new(0, 0, 340+activeTable.tableRotation)) --Vector4.new(-1034.6504, 1340.8641, 5.278, 1)
                 StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoMovement") -- Enable player movement
