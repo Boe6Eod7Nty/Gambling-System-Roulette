@@ -1,7 +1,6 @@
 Roulette = {
     version = '1.0.15',
     initVersion = '1.1.0',
-    loaded = true,
     ready = false
 }
 --===================
@@ -497,7 +496,7 @@ registerForEvent( "onInit", function() --runs on file load
         end)
     end
 
-    MyMod.ready = true
+    Roulette.ready = true
 end)
 
 registerForEvent('onUpdate', function(dt) --runs every frame
