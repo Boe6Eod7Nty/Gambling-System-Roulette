@@ -1,8 +1,11 @@
 TableManager = {
-    version = '1.0.0',
+    version = '1.1.0',
     activeTableID = nil,
     dealerEntIDs = {}, -- Track dealer entity IDs per table: dealerEntIDs[tableID] = entID
-    dealerSpawned = {} -- Track spawn state per table: dealerSpawned[tableID] = true/false
+    dealerSpawned = {}, -- Track spawn state per table: dealerSpawned[tableID] = true/false
+    tableEntities = {}, -- Track generic entities per table: tableEntities[tableID] = {entityName = entID, ...}
+    tableLoaded = {}, -- Track loaded state per table: tableLoaded[tableID] = true/false
+    optionalTables = {} -- Track optional tables with dependency checks: optionalTables[tableID] = {tableData, dependencyCheck}
 }
 --===================
 --CODE BY Boe6
@@ -114,10 +117,254 @@ function TableManager.getDealerEntID(tableID)
     return TableManager.dealerEntIDs[tableID]
 end
 
---- Creates a spot for a specific table
+--===================
+-- Phase 2.1: Generic Entity Management
+--===================
+
+--- Spawns a generic entity for a specific table
+---@param tableID string table ID to spawn entity at
+---@param entityName string unique name identifier for the entity
+---@param entPath string path to the entity file (.ent)
+---@param position Vector4|nil world position (if nil, will be calculated from offsetID)
+---@param orientation Quaternion|nil world orientation (if nil, will be calculated from offsetID)
+---@param offsetID string|nil offset ID to calculate position/orientation from (if position/orientation are nil)
+---@param tags table|nil additional tags to add to entity (default: {"[Boe6]","[Gambling System]"})
+---@return EntityID|nil entity ID if spawned successfully, nil otherwise
+function TableManager.spawnTableEntity(tableID, entityName, entPath, position, orientation, offsetID, tags)
+    -- Initialize table entities tracking if needed
+    if not TableManager.tableEntities[tableID] then
+        TableManager.tableEntities[tableID] = {}
+    end
+    
+    -- Check if entity already exists
+    if TableManager.tableEntities[tableID][entityName] then
+        return TableManager.tableEntities[tableID][entityName]
+    end
+    
+    -- Calculate position/orientation from offset if not provided
+    if not position or not orientation then
+        if not offsetID then
+            -- Try to use entityName as offsetID if no offsetID provided
+            offsetID = entityName
+        end
+        local calculatedPos, calculatedOri = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, offsetID)
+        if calculatedPos and calculatedOri then
+            position = calculatedPos
+            orientation = calculatedOri
+        else
+            -- Fallback: use table center position
+            local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+            if tableData then
+                position = tableData.position
+                orientation = tableData.orientation
+            else
+                return nil
+            end
+        end
+    end
+    
+    -- Default tags
+    local entityTags = {"[Boe6]", "[Gambling System]"}
+    if tags then
+        for _, tag in ipairs(tags) do
+            table.insert(entityTags, tag)
+        end
+    end
+    
+    -- Check if Codeware is available (required for entity spawning)
+    if not Codeware then
+        DualPrint('[==e ERROR: Codeware is not available! Entity spawning requires Codeware.')
+        return nil
+    end
+    
+    -- Spawn entity using DynamicEntitySystem
+    local dynamicEntitySystem = Game.GetDynamicEntitySystem()
+    if not dynamicEntitySystem then
+        DualPrint('[==e ERROR: DynamicEntitySystem is not available!')
+        return nil
+    end
+    
+    -- Validate entPath
+    if type(entPath) ~= 'string' then
+        DualPrint('[==e ERROR: entPath must be a string, got: '..type(entPath))
+        return nil
+    end
+    
+    -- Check if string is valid (Codeware utility, if available)
+    if IsStringValid then
+        if not IsStringValid(entPath) then
+            DualPrint('[==e ERROR: entPath string is not valid: '..tostring(entPath))
+            return nil
+        else
+            DualPrint('[DEBUG] IsStringValid check passed for: '..tostring(entPath))
+        end
+    else
+        DualPrint('[DEBUG] IsStringValid not available, skipping validation')
+    end
+    
+    local spec = DynamicEntitySpec.new()
+    
+    -- Check if entPath is a record ID or template path (.ent file)
+    local isRecord = false
+    local isValid = false
+    
+    if TweakDB and TweakDB:GetRecord(entPath) then
+        isRecord = true
+        isValid = true
+        spec.recordID = entPath
+    elseif string.match(entPath, '%.ent$') then
+        isValid = true
+        spec.templatePath = entPath
+    else
+        -- Fallback: try as recordID
+        spec.recordID = entPath
+        isValid = true
+    end
+    
+    if not isValid then
+        DualPrint('[==e ERROR: entPath is not valid (not a record ID or .ent file): '..tostring(entPath))
+        return nil
+    end
+    
+    spec.appearanceName = "default"
+    spec.position = position
+    spec.orientation = orientation
+    spec.alwaysSpawned = true
+    spec.spawnInView = true
+    spec.active = true
+    spec.tags = entityTags
+    
+    -- Extensive debug logging for entity spawning
+    DualPrint('[DEBUG] ========== TableManager.spawnTableEntity START ==========')
+    DualPrint('[DEBUG] entityName: '..tostring(entityName))
+    DualPrint('[DEBUG] tableID: '..tostring(tableID))
+    DualPrint('[DEBUG] entPath: '..tostring(entPath))
+    DualPrint('[DEBUG] entPath type: '..type(entPath))
+    DualPrint('[DEBUG] isRecord: '..tostring(isRecord))
+    DualPrint('[DEBUG] position: Vector4('..position.x..', '..position.y..', '..position.z..', '..position.w..')')
+    DualPrint('[DEBUG] orientation: Quaternion('..orientation.i..', '..orientation.j..', '..orientation.k..', '..orientation.r..')')
+    
+    -- Check if entPath is valid
+    if type(entPath) ~= 'string' then
+        DualPrint('[==e ERROR: entPath is not a string! Type: '..type(entPath))
+        return nil
+    end
+    
+    -- Check if TweakDB is available
+    if not TweakDB then
+        DualPrint('[==e ERROR: TweakDB is not available!')
+    end
+    
+    -- Check if DynamicEntitySystem is available
+    if not dynamicEntitySystem then
+        DualPrint('[==e ERROR: DynamicEntitySystem is not available!')
+        return nil
+    end
+    
+    -- Log spec details
+    if isRecord then
+        DualPrint('[DEBUG] Using recordID: '..tostring(spec.recordID))
+        -- Verify record exists
+        if TweakDB and TweakDB:GetRecord(spec.recordID) then
+            DualPrint('[DEBUG] Record exists in TweakDB')
+        else
+            DualPrint('[==e ERROR: Record does NOT exist in TweakDB: '..tostring(spec.recordID))
+        end
+    else
+        DualPrint('[DEBUG] Using templatePath: '..tostring(spec.templatePath))
+    end
+    
+    DualPrint('[DEBUG] spec.appearanceName: '..tostring(spec.appearanceName))
+    DualPrint('[DEBUG] spec.alwaysSpawned: '..tostring(spec.alwaysSpawned))
+    DualPrint('[DEBUG] spec.spawnInView: '..tostring(spec.spawnInView))
+    DualPrint('[DEBUG] spec.active: '..tostring(spec.active))
+    DualPrint('[DEBUG] spec.tags count: '..tostring(#entityTags))
+    for i, tag in ipairs(entityTags) do
+        DualPrint('[DEBUG]   tag['..i..']: '..tostring(tag))
+    end
+    
+    -- Attempt to create entity
+    DualPrint('[DEBUG] Calling dynamicEntitySystem:CreateEntity(spec)...')
+    local entID = dynamicEntitySystem:CreateEntity(spec)
+    DualPrint('[DEBUG] CreateEntity returned: '..tostring(entID))
+    
+    if entID then
+        -- Verify entity exists
+        local entity = Game.FindEntityByID(entID)
+        if entity then
+            local entityPos = entity:GetWorldPosition()
+            DualPrint('[DEBUG] Entity found in world at: ('..entityPos.x..', '..entityPos.y..', '..entityPos.z..')')
+        else
+            DualPrint('[==e WARNING: Entity ID returned but Game.FindEntityByID returned nil!')
+        end
+        
+        TableManager.tableEntities[tableID][entityName] = entID
+        DualPrint('[DEBUG] Entity '..entityName..' spawned successfully with ID: '..tostring(entID))
+    else
+        DualPrint('[==e ERROR: CreateEntity returned nil! Entity spawn failed.')
+        DualPrint('[==e ERROR: Failed to spawn entity '..entityName..' for table '..tableID)
+    end
+    
+    DualPrint('[DEBUG] ========== TableManager.spawnTableEntity END ==========')
+    return entID
+end
+
+--- Despawns a specific entity for a table
+---@param tableID string table ID
+---@param entityName string entity name to despawn
+function TableManager.despawnTableEntity(tableID, entityName)
+    if not TableManager.tableEntities[tableID] then
+        return
+    end
+    
+    local entID = TableManager.tableEntities[tableID][entityName]
+    if entID then
+        Game.GetDynamicEntitySystem():DeleteEntity(entID)
+        TableManager.tableEntities[tableID][entityName] = nil
+    end
+end
+
+--- Cleans up all entities for a specific table
+---@param tableID string table ID to clean up
+function TableManager.cleanupTableEntities(tableID)
+    if not TableManager.tableEntities[tableID] then
+        return
+    end
+    
+    local dynamicEntitySystem = Game.GetDynamicEntitySystem()
+    for entityName, entID in pairs(TableManager.tableEntities[tableID]) do
+        if entID then
+            dynamicEntitySystem:DeleteEntity(entID)
+        end
+    end
+    
+    TableManager.tableEntities[tableID] = nil
+end
+
+--- Gets an entity ID for a specific table entity
+---@param tableID string table ID
+---@param entityName string entity name
+---@return EntityID|nil entity ID or nil if not found
+function TableManager.getTableEntity(tableID, entityName)
+    if not TableManager.tableEntities[tableID] then
+        return nil
+    end
+    return TableManager.tableEntities[tableID][entityName]
+end
+
+--===================
+-- Phase 2.2: Game-Specific Callbacks
+--===================
+
+--- Creates a spot for a specific table with game-specific callbacks
 ---@param tableID string table ID to create spot for
 ---@param forcedCameraOption table table containing forced camera option: {[1] = boolean}
-function TableManager.createSpotForTable(tableID, forcedCameraOption)
+---@param gameType string|nil game type ('blackjack' | 'roulette'), defaults to 'blackjack' for backward compatibility
+---@param callbacks table|nil game-specific callbacks: {onEnter, onEnterAfterAnimation, onExit, onExitAfterAnimation}
+function TableManager.createSpotForTable(tableID, forcedCameraOption, gameType, callbacks)
+    gameType = gameType or 'blackjack' -- Default to blackjack for backward compatibility
+    callbacks = callbacks or {}
+    
     local spotID = tableID  -- Capture spot_id in local variable for use in closures
     local spotObj = {
         spot_id = spotID,
@@ -133,40 +380,61 @@ function TableManager.createSpotForTable(tableID, forcedCameraOption)
         end,
         callback_OnSpotEnter = function ()
             TableManager.SetActiveTable(spotID)
-            -- Note: DualPrint is not available here, would need to be passed or required
-            if forcedCameraOption[1] then
-                -- Top-down camera enabled - use original position
-                local adjustedPosition, adjustedOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'top_down_holo_display')
-                HolographicValueDisplay.startDisplay(adjustedPosition, adjustedOrientation)
-            else
-                -- Top-down camera disabled - use adjusted position
-                local adjustedPosition, adjustedOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'standard_holo_display')
-                HolographicValueDisplay.startDisplay(adjustedPosition, adjustedOrientation)
+            
+            -- Call game-specific onEnter callback if provided
+            if callbacks.onEnter then
+                callbacks.onEnter(spotID)
+            elseif gameType == 'blackjack' then
+                -- Default blackjack behavior
+                if forcedCameraOption[1] then
+                    local adjustedPosition, adjustedOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'top_down_holo_display')
+                    HolographicValueDisplay.startDisplay(adjustedPosition, adjustedOrientation)
+                else
+                    local adjustedPosition, adjustedOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'standard_holo_display')
+                    HolographicValueDisplay.startDisplay(adjustedPosition, adjustedOrientation)
+                end
+                local deckPosition, deckOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'deck_position')
+                CardEngine.BuildVisualDeck(deckPosition, deckOrientation)
             end
-            local deckPosition, deckOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'deck_position')
-            CardEngine.BuildVisualDeck(deckPosition, deckOrientation)
         end,
-        callback_OnSpotEnterAfterAnimationDelayTime = 3.5,        callback_OnSpotEnterAfterAnimation = function ()
-            BlackjackMainMenu.playerChipsMoney = 0        --Reset vars b4 game, safe check
-            BlackjackMainMenu.playerChipsHalfDollar = false
-            BlackjackMainMenu.previousBet = nil
-            BlackjackMainMenu.currentBet = nil
-            BlackjackMainMenu.StartMainMenu()
+        callback_OnSpotEnterAfterAnimationDelayTime = 3.5,
+        callback_OnSpotEnterAfterAnimation = function ()
+            -- Call game-specific onEnterAfterAnimation callback if provided
+            if callbacks.onEnterAfterAnimation then
+                callbacks.onEnterAfterAnimation(spotID)
+            elseif gameType == 'blackjack' then
+                -- Default blackjack behavior
+                BlackjackMainMenu.playerChipsMoney = 0
+                BlackjackMainMenu.playerChipsHalfDollar = false
+                BlackjackMainMenu.previousBet = nil
+                BlackjackMainMenu.currentBet = nil
+                BlackjackMainMenu.StartMainMenu()
+            end
         end,
-        callback_OnSpotExitAfterAnimationDelayTime = 2.5, --found via trial and error. Aproximate time to finish animation.
+        callback_OnSpotExitAfterAnimationDelayTime = 2.5,
         callback_OnSpotExit = function()
             TableManager.ClearActiveTable()
-            -- Note: DualPrint is not available here, would need to be passed or required
-            HolographicValueDisplay.stopDisplay()
-            -- Clean up game state on mid-game exit
-            SingleRoundLogic.cleanupRound()
+            
+            -- Call game-specific onExit callback if provided
+            if callbacks.onExit then
+                callbacks.onExit(spotID)
+            elseif gameType == 'blackjack' then
+                -- Default blackjack behavior
+                HolographicValueDisplay.stopDisplay()
+                SingleRoundLogic.cleanupRound()
+            end
         end,
         callback_OnSpotExitAfterAnimation = function()
-            CardEngine.RemoveVisualDeck()
-            -- Clear entity cache when exiting table to prevent stale entries
-            CardEngine.clearEntityCache()
+            -- Call game-specific onExitAfterAnimation callback if provided
+            if callbacks.onExitAfterAnimation then
+                callbacks.onExitAfterAnimation(spotID)
+            elseif gameType == 'blackjack' then
+                -- Default blackjack behavior
+                CardEngine.RemoveVisualDeck()
+                CardEngine.clearEntityCache()
+            end
         end,
-        exit_orientationCorrection = {r=0,p=0,y=150},-- I *think* this corrects for the 180 turn that the exit animation causes.
+        exit_orientationCorrection = {r=0,p=0,y=150},
         exit_worldPositionOffset = {x=0.5,y=0,z=0},
         exit_animationName = "sit_chair_table_lean0__2h_on_table__01__to__stand__2h_on_sides__01__turn0l__01",
         mappin_worldPosition = nil,  -- Will be calculated below
@@ -176,7 +444,7 @@ function TableManager.createSpotForTable(tableID, forcedCameraOption)
         mappin_rangeMin = 0.5,
         mappin_color = nil,
         mappin_worldIcon = "ChoiceIcons.SitIcon",
-        mappin_hubText = GameLocale.Text("Blackjack"),
+        mappin_hubText = GameLocale.Text(gameType == 'roulette' and "Roulette" or "Blackjack"),
         mappin_choiceText = GameLocale.Text("Join Table"),
         mappin_choiceIcon = "ChoiceCaptionParts.SitIcon",
         mappin_choiceFont = gameinteractionsChoiceType.QuestImportant,
@@ -208,6 +476,224 @@ function TableManager.createSpotForTable(tableID, forcedCameraOption)
     )
     
     SpotManager.AddSpot(spotObj)
+end
+
+
+
+--===================
+-- Phase 2.3: Table Loading/Unloading
+--===================
+
+--- Checks if player is nearby a table and loads it if within distance
+---@param tableID string table ID to check
+---@param distance number distance threshold to load table (default: 20)
+---@param playerPosition Vector4|nil player position (if nil, will be retrieved)
+---@return boolean true if table was loaded or already loaded, false otherwise
+---Counts the number of registered tables (for debugging)
+---@return number count of registered tables
+function TableManager.countRegisteredTables()
+    local count = 0
+    for _ in pairs(RelativeCoordinateCalulator.registeredTables) do
+        count = count + 1
+    end
+    return count
+end
+
+function TableManager.loadTableIfNearby(tableID, distance, playerPosition)
+    distance = distance or 20
+    
+    DualPrint('[DEBUG] loadTableIfNearby: tableID='..tostring(tableID)..', distance='..tostring(distance))
+    
+    -- Check if already loaded
+    if TableManager.tableLoaded[tableID] then
+        DualPrint('[DEBUG] loadTableIfNearby: Table '..tostring(tableID)..' is already loaded')
+        return true
+    end
+    
+    -- Get player position if not provided
+    if not playerPosition then
+        local player = GetPlayer()
+        if not player then
+            DualPrint('[==e ERROR: loadTableIfNearby: GetPlayer() returned nil')
+            return false
+        end
+        playerPosition = player:GetWorldPosition()
+    end
+    
+    DualPrint('[DEBUG] loadTableIfNearby: Player position: ('..playerPosition.x..', '..playerPosition.y..', '..playerPosition.z..')')
+    
+    -- Get table center position
+    local tableCenterPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
+    if not tableCenterPos then
+        DualPrint('[DEBUG] loadTableIfNearby: Failed to get spinner_center_point, falling back to table position')
+        -- Fallback to table position
+        local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+        if not tableData then
+            DualPrint('[==e ERROR: loadTableIfNearby: Table '..tostring(tableID)..' not found in registeredTables')
+            return false
+        end
+        tableCenterPos = tableData.position
+    end
+    
+    DualPrint('[DEBUG] loadTableIfNearby: Table center position: ('..tableCenterPos.x..', '..tableCenterPos.y..', '..tableCenterPos.z..')')
+    
+    -- Calculate distance (2D distance, ignoring Z)
+    local dx = playerPosition.x - tableCenterPos.x
+    local dy = playerPosition.y - tableCenterPos.y
+    local distanceToTable = math.sqrt(dx * dx + dy * dy)
+    
+    DualPrint('[DEBUG] loadTableIfNearby: Distance calculation: dx='..dx..', dy='..dy..', distanceToTable='..distanceToTable..', threshold='..distance)
+    
+    if distanceToTable < distance then
+        DualPrint('[DEBUG] loadTableIfNearby: Table '..tostring(tableID)..' is within range!')
+        -- NOTE: Do NOT set tableLoaded here - that should be done by the caller after InitTable is called
+        return true
+    else
+        DualPrint('[DEBUG] loadTableIfNearby: Table '..tostring(tableID)..' is too far away (distance='..distanceToTable..', threshold='..distance..')')
+    end
+    
+    return false
+end
+
+--- Checks if player is far from a table and unloads it if beyond distance
+---@param tableID string table ID to check
+---@param distance number distance threshold to unload table (default: 100)
+---@param playerPosition Vector4|nil player position (if nil, will be retrieved)
+---@return boolean true if table was unloaded, false otherwise
+function TableManager.unloadTableIfFar(tableID, distance, playerPosition)
+    distance = distance or 100
+    
+    -- Check if not loaded
+    if not TableManager.tableLoaded[tableID] then
+        return false
+    end
+    
+    -- Get player position if not provided
+    if not playerPosition then
+        local player = GetPlayer()
+        if not player then
+            return false
+        end
+        playerPosition = player:GetWorldPosition()
+    end
+    
+    -- Get table center position
+    local tableCenterPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
+    if not tableCenterPos then
+        -- Fallback to table position
+        local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+        if not tableData then
+            return false
+        end
+        tableCenterPos = tableData.position
+    end
+    
+    -- Calculate distance (2D distance, ignoring Z)
+    local dx = playerPosition.x - tableCenterPos.x
+    local dy = playerPosition.y - tableCenterPos.y
+    local distanceToTable = math.sqrt(dx * dx + dy * dy)
+    
+    if distanceToTable > distance then
+        TableManager.tableLoaded[tableID] = false
+        -- Clean up entities when unloading
+        TableManager.cleanupTableEntities(tableID)
+        return true
+    end
+    
+    return false
+end
+
+--- Checks if a table is currently loaded
+---@param tableID string table ID to check
+---@return boolean true if table is loaded
+function TableManager.isTableLoaded(tableID)
+    return TableManager.tableLoaded[tableID] == true
+end
+
+--- Manually sets the loaded state of a table
+---@param tableID string table ID
+---@param loaded boolean loaded state
+function TableManager.setTableLoaded(tableID, loaded)
+    TableManager.tableLoaded[tableID] = loaded
+end
+
+--===================
+-- Phase 2.4: Optional Table Support
+--===================
+
+--- Registers an optional table with dependency check
+---@param tableData table table data: {id, position (Vector4), orientation (Quaternion), ...}
+---@param dependencyCheck string|function mod name to check or function that returns boolean
+---@return boolean true if table was registered, false if dependency not met
+function TableManager.registerOptionalTable(tableData, dependencyCheck)
+    if not tableData or not tableData.id then
+        return false
+    end
+    
+    -- Check dependency
+    local dependencyMet = false
+    if type(dependencyCheck) == "function" then
+        dependencyMet = dependencyCheck()
+    elseif type(dependencyCheck) == "string" then
+        dependencyMet = GetMod(dependencyCheck) ~= nil
+    else
+        return false
+    end
+    
+    if not dependencyMet then
+        -- Store for later checking if dependency becomes available
+        TableManager.optionalTables[tableData.id] = {
+            tableData = tableData,
+            dependencyCheck = dependencyCheck
+        }
+        return false
+    end
+    
+    -- Register the table
+    if tableData.position and tableData.orientation then
+        RelativeCoordinateCalulator.registerTable(
+            tableData.id,
+            tableData.position,
+            tableData.orientation
+        )
+        
+        -- Remove from optional tables tracking since it's now registered
+        TableManager.optionalTables[tableData.id] = nil
+        return true
+    end
+    
+    return false
+end
+
+--- Rechecks all optional tables and registers them if dependencies are now met
+--- This can be called after mods are loaded to register previously unavailable tables
+function TableManager.recheckOptionalTables()
+    for tableID, optionalData in pairs(TableManager.optionalTables) do
+        -- Skip if already registered
+        if RelativeCoordinateCalulator.registeredTables[tableID] then
+            TableManager.optionalTables[tableID] = nil
+        else
+            -- Recheck dependency
+            local dependencyMet = false
+            if type(optionalData.dependencyCheck) == "function" then
+                dependencyMet = optionalData.dependencyCheck()
+            elseif type(optionalData.dependencyCheck) == "string" then
+                dependencyMet = GetMod(optionalData.dependencyCheck) ~= nil
+            end
+            
+            if dependencyMet then
+                -- Register the table
+                if optionalData.tableData.position and optionalData.tableData.orientation then
+                    RelativeCoordinateCalulator.registerTable(
+                        optionalData.tableData.id,
+                        optionalData.tableData.position,
+                        optionalData.tableData.orientation
+                    )
+                    TableManager.optionalTables[tableID] = nil
+                end
+            end
+        end
+    end
 end
 
 return TableManager

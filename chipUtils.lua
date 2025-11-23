@@ -11,7 +11,6 @@ ChipUtils = {
 
 -- Dependencies (will be set via Initialize)
 local Cron = nil
-local activeTable = nil
 local tableBoardOrigin = nil
 local chipRotation = nil
 local chipHeight = nil
@@ -48,7 +47,6 @@ end
 -- Initialize function to set dependencies
 function ChipUtils.Initialize(deps)
     Cron = deps.Cron
-    activeTable = deps.activeTable
     tableBoardOrigin = deps.tableBoardOrigin
     chipRotation = deps.chipRotation
     chipHeight = deps.chipHeight
@@ -78,9 +76,11 @@ function ChipUtils.HexToBoardCoords(hexCoords)
         return {x=0, y=0}
     end
     
-    if not activeTable then
+    -- Get table rotation dynamically from active table
+    local tableRotation = GetActiveTableRotation()
+    if not tableRotation then
         if DuelPrint then
-            DuelPrint('[==e ERROR: activeTable is nil in HexToBoardCoords!')
+            DuelPrint('[==e ERROR: Could not get active table rotation in HexToBoardCoords!')
         end
         return {x=0, y=0}
     end
@@ -96,7 +96,7 @@ function ChipUtils.HexToBoardCoords(hexCoords)
     else
         localXw = wXPartial3 + 0.2200*(hexCoords.y-3)
     end
-    local rotationAngle = (activeTable.tableRotation + 89.7887983)
+    local rotationAngle = (tableRotation + 89.7887983)
     local localPositionxy = RotatePoint({x=tableBoardOrigin.x, y=tableBoardOrigin.y}, {x=localXw, y=localYw}, rotationAngle )
     localXw = localPositionxy.x
     localYw = localPositionxy.y

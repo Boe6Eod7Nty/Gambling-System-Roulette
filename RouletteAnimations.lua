@@ -218,7 +218,12 @@ function RouletteAnimations.AdvanceRouletteBall()
 
     -- update ball height to stay on "ground" based on ball_distance
     if not tableCenterPoint then
-        dependencies.DuelPrint('=E ERROR: tableCenterPoint not set in RouletteAnimations, CODE 5001')
+        -- Don't spam error if tableCenterPoint is just not set yet (table not initialized)
+        -- Only log once per second to avoid spam
+        if not RouletteAnimations._lastTableCenterError or (os.time() - RouletteAnimations._lastTableCenterError) >= 1 then
+            dependencies.DuelPrint('=E ERROR: tableCenterPoint not set in RouletteAnimations, CODE 5001')
+            RouletteAnimations._lastTableCenterError = os.time()
+        end
         return
     end
     

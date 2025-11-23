@@ -133,17 +133,52 @@ end
 ---@return Quaternion relativeOrientation world orientation
 function RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, offsetID)
     local table = RelativeCoordinateCalulator.registeredTables[tableID]
+    if not table then
+        DualPrint('[==e ERROR: Table '..tostring(tableID)..' not found in registeredTables')
+        return nil, nil
+    end
+    
     local offset = RelativeCoordinateCalulator.registeredOffsets[offsetID]
-    -- Transform the offset position by the table's rotation before adding to table position
-    -- This ensures the offset rotates around the table center when the table rotates
+    if not offset then
+        DualPrint('[==e ERROR: Offset '..tostring(offsetID)..' not found in registeredOffsets')
+        return nil, nil
+    end
+    
     local offsetPositionVector = Vector4.new(offset.position.x, offset.position.y, offset.position.z, 0)
-    local transformedOffsetPosition = table.orientation:Transform(offsetPositionVector)
+    local transformedOffsetPosition
+    local basePosition
+    local baseOrientation
+    
+    -- Special case: spinner_center_point is a fixed world-space offset from table to spinner
+    -- It should NOT be rotated because it's a fixed physical offset in world space
+    if offsetID == 'spinner_center_point' then
+        -- No rotation for fixed offset - add directly to table position
+        transformedOffsetPosition = offsetPositionVector
+        basePosition = table.position
+        baseOrientation = table.orientation
+    else
+        -- For all other offsets, they are relative to spinner_center_point (not table position)
+        -- First, get the spinner center world position
+        local spinnerCenterPos, spinnerCenterOri = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
+        if not spinnerCenterPos then
+            DualPrint('[==e ERROR: Failed to get spinner_center_point for chaining offset '..offsetID)
+            return nil, nil
+        end
+        
+        -- Rotate the offset (it's relative to spinner center in local space)
+        transformedOffsetPosition = table.orientation:Transform(offsetPositionVector)
+        basePosition = spinnerCenterPos
+        baseOrientation = spinnerCenterOri
+    end
+    
+    -- Calculate final position
     local relativePosition = Vector4.new(
-        table.position.x + transformedOffsetPosition.x,
-        table.position.y + transformedOffsetPosition.y,
-        table.position.z + transformedOffsetPosition.z,
-        table.position.w
+        basePosition.x + transformedOffsetPosition.x,
+        basePosition.y + transformedOffsetPosition.y,
+        basePosition.z + transformedOffsetPosition.z,
+        basePosition.w
     )
+    
     -- Compose rotations properly: get basis vectors from offset, transform by table rotation
     -- This applies offset rotation first, then table rotation (equivalent to table * offset)
     local offsetForward = offset.orientation:GetForward()

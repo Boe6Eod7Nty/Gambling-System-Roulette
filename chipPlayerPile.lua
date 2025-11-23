@@ -14,7 +14,6 @@ local ChipUtils = nil
 local Cron = nil
 local chip_colors = nil
 local chipHeight = nil
-local activeTable = nil
 local chipRotation = nil
 local RegisterEntity = nil
 local DeRegisterEntity = nil
@@ -42,7 +41,6 @@ function ChipPlayerPile.Initialize(deps)
     Cron = deps.Cron
     chip_colors = deps.chip_colors
     chipHeight = deps.chipHeight
-    activeTable = deps.activeTable
     chipRotation = deps.chipRotation
     RegisterEntity = deps.RegisterEntity
     DeRegisterEntity = deps.DeRegisterEntity
@@ -201,7 +199,23 @@ function ChipPlayerPile.FindAndSpawnStack(localPile, localIndex, value) --create
                             y=nextHexLocation.y * 0.035,
                             z=(nextHexLocation.z-1) * 0.035
                         }
-    local stackRotation = (activeTable.tableRotation + chipRotation) * math.pi / 180
+    -- Get table rotation dynamically from active table
+    local tableRotation = 0 -- Default fallback
+    if GetActiveTableRotation then
+        local rotation = GetActiveTableRotation()
+        if rotation then
+            tableRotation = rotation
+        else
+            if DuelPrint then
+                DuelPrint('[==e WARNING: Could not get active table rotation in FindAndSpawnStack, using 0')
+            end
+        end
+    else
+        if DuelPrint then
+            DuelPrint('[==e ERROR: GetActiveTableRotation function not available in FindAndSpawnStack!')
+        end
+    end
+    local stackRotation = (tableRotation + chipRotation) * math.pi / 180
     local nextLocationRotated = {
                             x=( nextLocationOffset.x * math.cos(stackRotation) ) - ( nextLocationOffset.y * math.sin(stackRotation) ),
                             y=( nextLocationOffset.y * math.cos(stackRotation) ) + ( nextLocationOffset.x * math.sin(stackRotation) ),

@@ -57,6 +57,9 @@ local ChipUtils = require("chipUtils.lua")
 local ChipBetPiles = require("chipBetPiles.lua")
 local ChipPlayerPile = require("chipPlayerPile.lua")
 local RouletteAnimations = require("RouletteAnimations.lua")
+local RelativeCoordinateCalulator = require('RelativeCoordinateCalulator.lua')
+local RouletteCoordinates = require('RouletteCoordinates.lua')
+local TableManager = require('TableManager.lua')
 
 
 --Modules
@@ -97,47 +100,7 @@ local currentlyRepeatingBets = false
 tableCenterPoint = {x=-1033.34668, y=1340.00183, z=6.21331358} --default value (hoohbarold)
 local playerPlayingPosition = {x=-1034.435, y=1340.8057, z=5.278}
 local tableBoardOrigin = {x=-1033.7970, y=1342.182833333, z=6.310} --default value (hoohbarold)
-local allTables = {
-    {
-        id = 'hoohbar',
-        initialized = false,
-        loaded = false,
-        SpinnerCenterPoint = {x=-1045.09375, y=1345.21069, z=6.21331358},
-        tableRotation = -179.7887985,
-        presetTable = false
-    },
-    {
-        id = 'tygerclawscasino',
-        initialized = false,
-        loaded = false,
-        SpinnerCenterPoint = {x=-65.6290207, y=-282.153259, z=-1.57608986},
-        tableRotation = -170.8390799,
-        presetTable = false
-    }
-}
-local optionalTables = {
-    {
-        id = 'gunrunnersclub',
-        initialized = false,
-        loaded = false,
-        SpinnerCenterPoint = {x=-2228.825, y=-2550.422, z=81.209},
-        tableRotation = -43.068,
-        presetTable = true,
-        enabled = false,
-        dependancyCheck = 'Gambling System - Compatability - Gunrunnersclub'
-    }--[[,
-    {
-        id = 'northoakcasino',
-        initialized = false,
-        loaded = false,
-        SpinnerCenterPoint = {x=997.970703, y=1476.80933, z=246.949997},
-        tableRotation = -71.958,
-        presetTable = true
-        enabled = false
-        dependancyCheck = 'Gambling System - Compatability - Northoakcasino'
-    }]]--
-}
-activeTable = allTables[1]
+-- Tables are now managed by RouletteCoordinates and TableManager
 
 -- ent files used to create entities
 local chip_broken = "base\\gameplay\\items\\misc\\appearances\\broken_poker_chip_junk.ent"
@@ -323,27 +286,56 @@ local callback40x = function()
         StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCombat")
         --idk if these need to be set but better safe than sorry. Loading bugs are hard to pinpoint.
         inRouletteTable = false
+        if gameLoadDelayCount == 0 then
+            DuelPrint('[DEBUG] callback40x: Starting game load delay (count='..gameLoadDelayCount..', delay='..gameLoadDelayTime..')')
+        end
     end
     if not areaInitialized and gameLoadDelayCount >= gameLoadDelayTime then --checks if area is loaded, and if the game has been running.
+        if gameLoadDelayCount == gameLoadDelayTime then
+            DuelPrint('[DEBUG] callback40x: Game load delay complete, checking for nearby tables...')
+            DuelPrint('[DEBUG] callback40x: areaInitialized='..tostring(areaInitialized))
+            DuelPrint('[DEBUG] callback40x: registeredTables count='..tostring(TableManager.countRegisteredTables()))
+        end
+        
         local playerPosition = GetPlayer():GetWorldPosition()
-        local pX = playerPosition.x
-        local pY = playerPosition.y
-        for i, v in ipairs(allTables) do
-            local distanceToTable = math.sqrt((pX - v.SpinnerCenterPoint.x)^2 + (pY - v.SpinnerCenterPoint.y)^2)
-            if distanceToTable < tableLoadDistance then
-                areaInitialized = true
-                InitTable(allTables[i])
+        DuelPrint('[DEBUG] callback40x: Player position: ('..playerPosition.x..', '..playerPosition.y..', '..playerPosition.z..')')
+        
+        -- Check all registered tables for nearby loading
+        local tablesChecked = 0
+        for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
+            tablesChecked = tablesChecked + 1
+            DuelPrint('[DEBUG] callback40x: Checking table: '..tostring(tableID))
+            
+            local isNearby = TableManager.loadTableIfNearby(tableID, tableLoadDistance, playerPosition)
+            DuelPrint('[DEBUG] callback40x: Table '..tostring(tableID)..' isNearby='..tostring(isNearby))
+            
+            if isNearby then
+                local isLoaded = TableManager.isTableLoaded(tableID)
+                DuelPrint('[DEBUG] callback40x: Table '..tostring(tableID)..' isLoaded='..tostring(isLoaded))
+                
+                if not isLoaded then
+                    -- Table is nearby but not initialized yet
+                    DuelPrint('[DEBUG] callback40x: Initializing table: '..tostring(tableID))
+                    areaInitialized = true
+                    TableManager.setTableLoaded(tableID, true)
+                    InitTable(tableID)
+                    break -- Only initialize one table at a time
+                end
             end
+        end
+        
+        if tablesChecked == 0 then
+            DuelPrint('[==e ERROR: No registered tables found! RelativeCoordinateCalulator.registeredTables is empty.')
         end
     end
     if areaInitialized then
-        local playerPosition = GetPlayer():GetWorldPosition()
-        local pX = playerPosition.x
-        local pY = playerPosition.y
-
-        local distanceToTable = math.sqrt((pX - activeTable.SpinnerCenterPoint.x)^2 + (pY - activeTable.SpinnerCenterPoint.y)^2)
-        if distanceToTable > tableUnloadDistance then
-            DespawnTable()
+        local activeTableID = TableManager.GetActiveTable()
+        if activeTableID then
+            local playerPosition = GetPlayer():GetWorldPosition()
+            -- Check if player moved too far from active table
+            if TableManager.unloadTableIfFar(activeTableID, tableUnloadDistance, playerPosition) then
+                DespawnTable()
+            end
         end
     end
 
@@ -393,7 +385,6 @@ registerForEvent( "onInit", function() --runs on file load
     -- Initialize chip modules
     ChipUtils.Initialize({
         Cron = Cron,
-        activeTable = activeTable,
         tableBoardOrigin = tableBoardOrigin,
         chipRotation = chipRotation,
         chipHeight = chipHeight,
@@ -427,7 +418,6 @@ registerForEvent( "onInit", function() --runs on file load
         Cron = Cron,
         chip_colors = chip_colors,
         chipHeight = chipHeight,
-        activeTable = activeTable,
         chipRotation = chipRotation,
         RegisterEntity = RegisterEntity,
         DeRegisterEntity = DeRegisterEntity,
@@ -474,24 +464,23 @@ registerForEvent( "onInit", function() --runs on file load
         DespawnTable()
     end)
 
-    for i, v in ipairs(optionalTables) do --check option table requirements
-        local dependancyEnabled = GetMod(v.dependancyCheck)
-        if dependancyEnabled then
-            v.enabled = true
-            table.insert(allTables, v)
-            DuelPrint('Table Enabled: '..v.id)
-        end
-    end
+    -- Initialize roulette coordinates (registers tables and offsets)
+    RouletteCoordinates.init()
 
-    for i, v in ipairs(allTables) do
-        local xy = RotatePoint({x=v.SpinnerCenterPoint.x, y=v.SpinnerCenterPoint.y}, {x=v.SpinnerCenterPoint.x -0.6828427083, y=v.SpinnerCenterPoint.y -0.7238078523}, v.tableRotation)
-        world.addInteraction(v.id, Vector4.new(xy.x, xy.y, v.SpinnerCenterPoint.z + 0.09368642, 1), 1.0, 80, "ChoiceIcons.SitIcon", 6.5, 0.5, nil, function(state)
-            --Vector4.new(-1034.073, 1340.682, v.SpinnerCenterPoint.z + 0.09368642, 1)
+    -- Register world interactions for all registered tables
+    for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
+        -- Use mappin_position for the interaction position (should be at table level)
+        local mappinPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'mappin_position')
+        -- Capture tableID in closure for use in callback
+        local capturedTableID = tableID
+        world.addInteraction(tableID, mappinPos, 1.0, 80, "ChoiceIcons.SitIcon", 6.5, 0.5, nil, function(state)
             --  (id, position, interactionRange, angle, icon, iconRange, iconRangeMin, iconColor, callback)
+            -- Set active table when interaction is shown
             if state then -- Show
-                UpdateJoinUI(true)
+                TableManager.SetActiveTable(capturedTableID)
+                UpdateJoinUI(true, capturedTableID)
             else -- Hide
-                UpdateJoinUI(false)
+                UpdateJoinUI(false, capturedTableID)
             end
         end)
     end
@@ -612,54 +601,182 @@ end)
 --Functions
 --=========
 
-function InitTable(table)
+---Helper function to get active table data from RelativeCoordinateCalulator
+---@return table|nil table data or nil if no active table
+function GetActiveTableData()
+    local activeTableID = TableManager.GetActiveTable()
+    if not activeTableID then
+        return nil
+    end
+    return RelativeCoordinateCalulator.registeredTables[activeTableID]
+end
 
+---Helper function to get active table rotation in degrees
+---Extracts rotation from table orientation Quaternion
+---@return number|nil rotation angle in degrees, or nil if no active table
+function GetActiveTableRotation()
+    local tableData = GetActiveTableData()
+    if not tableData then
+        return nil
+    end
+    local euler = tableData.orientation:ToEulerAngles()
+    return euler.yaw
+end
+
+function InitTable(tableID)
+    DuelPrint('[DEBUG] ========== InitTable CALLED ==========')
+    DuelPrint('[DEBUG] InitTable: tableID='..tostring(tableID))
+    
     --Game.GetWorldStateSystem():DeactivateCommunity(CreateNodeRef("#kab_07_com_ground_floor_crowd"), "Clients_male") --"deactivate"/despawn guy in roulette seat, uses codeware
     -- found in RedHotTools, node ref final /xyz/    --found in community file, match Record ID = CharacterRecordID in community file, use entryName value
     -- removing this in the future and using a phycial table that doesn't need NPCs removed.
 
-    activeTable = table
-    tableCenterPoint = table.SpinnerCenterPoint
+    TableManager.SetActiveTable(tableID)
+    DuelPrint('[DEBUG] InitTable: Active table set to '..tostring(tableID))
+    
+    -- Get table center point (spinner center point) - MUST be set before spawning entities
+    local spinnerCenterPos, spinnerOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
+    if not spinnerCenterPos then
+        DuelPrint('[==e ERROR: Failed to calculate spinner center position for table '..tostring(tableID))
+        return
+    end
+    tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
+    
+    -- Update RouletteAnimations with table center point immediately
     RouletteAnimations.UpdateBallCenter(tableCenterPoint)
 
-    RegisterEntity('roulette_spinner', roulette_spinner, 'default')
-    RegisterEntity('roulette_ball', roulette_ball, 'default')
-    if table.presetTable then
-        RegisterEntity('roulette_spinner_frame', roulette_spinner_frame, 'default')
+    -- Spawn roulette entities using TableManager
+    DuelPrint('[DEBUG] ========== InitTable: Starting entity spawns ==========')
+    DuelPrint('[DEBUG] InitTable: Spawning roulette_spinner')
+    DuelPrint('[DEBUG] InitTable: roulette_spinner path: '..tostring(roulette_spinner))
+    DuelPrint('[DEBUG] InitTable: Position: ('..spinnerCenterPos.x..', '..spinnerCenterPos.y..', '..spinnerCenterPos.z..')')
+    
+    local spinnerEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner', roulette_spinner, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
+    if spinnerEntID then
+        DuelPrint('[DEBUG] InitTable: roulette_spinner spawned successfully with ID: '..tostring(spinnerEntID))
+    else
+        DuelPrint('[==e ERROR: InitTable: Failed to spawn roulette_spinner entity')
+    end
+    
+    DuelPrint('[DEBUG] InitTable: Spawning roulette_ball')
+    DuelPrint('[DEBUG] InitTable: roulette_ball path: '..tostring(roulette_ball))
+    DuelPrint('[DEBUG] InitTable: Position: ('..spinnerCenterPos.x..', '..spinnerCenterPos.y..', '..spinnerCenterPos.z..')')
+    
+    local ballEntID = TableManager.spawnTableEntity(tableID, 'roulette_ball', roulette_ball, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
+    if ballEntID then
+        DuelPrint('[DEBUG] InitTable: roulette_ball spawned successfully with ID: '..tostring(ballEntID))
+    else
+        DuelPrint('[==e ERROR: InitTable: Failed to spawn roulette_ball entity')
+    end
+    
+    DuelPrint('[DEBUG] ========== InitTable: Entity spawns complete ==========')
+    
+    -- Register entities in local entRecords system for compatibility with FindEntIdByName, SetRotateEnt, etc.
+    -- Check if already exists to prevent duplicates
+    if spinnerEntID then
+        local exists = false
+        for i, v in ipairs(entRecords) do
+            if v.name == 'roulette_spinner' then
+                exists = true
+                break
+            end
+        end
+        if not exists then
+            table.insert(entRecords, { name = 'roulette_spinner', id = spinnerEntID })
+            table.insert(historicalEntRecords, { name = 'roulette_spinner', id = spinnerEntID })
+        end
+    end
+    if ballEntID then
+        local exists = false
+        for i, v in ipairs(entRecords) do
+            if v.name == 'roulette_ball' then
+                exists = true
+                break
+            end
+        end
+        if not exists then
+            table.insert(entRecords, { name = 'roulette_ball', id = ballEntID })
+            table.insert(historicalEntRecords, { name = 'roulette_ball', id = ballEntID })
+        end
+    end
+    
+    -- Check if preset table (gunrunnersclub needs frame)
+    if tableID == 'gunrunnersclub' then
+        local frameEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner_frame', roulette_spinner_frame, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
+        if frameEntID then
+            local exists = false
+            for i, v in ipairs(entRecords) do
+                if v.name == 'roulette_spinner_frame' then
+                    exists = true
+                    break
+                end
+            end
+            if not exists then
+                table.insert(entRecords, { name = 'roulette_spinner_frame', id = frameEntID })
+                table.insert(historicalEntRecords, { name = 'roulette_spinner_frame', id = frameEntID })
+            end
+        end
     end
 
-    local pilexy = RotatePoint({x=table.SpinnerCenterPoint.x, y=table.SpinnerCenterPoint.y}, {x=table.SpinnerCenterPoint.x -0.3892143661, y=table.SpinnerCenterPoint.y -0.5538890579}, table.tableRotation)
+    -- Get player pile position
+    local playerPilePos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_pile_position')
+    DuelPrint('[DEBUG] InitTable: player_pile_position calculated as x='..playerPilePos.x..', y='..playerPilePos.y..', z='..playerPilePos.z)
     local playerPile = ChipPlayerPile.GetPlayerPile()
-    playerPile.location = {x=pilexy.x, y=pilexy.y, z=table.SpinnerCenterPoint.z + 0.09668642}
+    playerPile.location = {x=playerPilePos.x, y=playerPilePos.y, z=playerPilePos.z}
 
+    -- Get player playing position
+    local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_playing_position')
+    DuelPrint('[DEBUG] InitTable: player_playing_position calculated as x='..playerPos.x..', y='..playerPos.y..', z='..playerPos.z)
+    playerPlayingPosition = {x=playerPos.x, y=playerPos.y, z=playerPos.z}
 
-    local playerPositionxy = RotatePoint({x=table.SpinnerCenterPoint.x, y=table.SpinnerCenterPoint.y}, {x=table.SpinnerCenterPoint.x -0.80787625665175, y=table.SpinnerCenterPoint.y -1.085349415275}, table.tableRotation)
-    playerPlayingPosition = {x=playerPositionxy.x, y=playerPositionxy.y, z=table.SpinnerCenterPoint.z -0.93531358}
-
-    -- Holographic display position (same location as old chip_stacks stand, HolographicValueDisplay will spawn its own stand)
-    local holoPositionxy = RotatePoint({x=table.SpinnerCenterPoint.x, y=table.SpinnerCenterPoint.y}, {x=table.SpinnerCenterPoint.x +0.17977070965503, y=table.SpinnerCenterPoint.y -0.55898646070364}, table.tableRotation)
-    holographicDisplayPosition = {x=holoPositionxy.x, y=holoPositionxy.y, z=table.SpinnerCenterPoint.z+0.08668642}
+    -- Get holographic display position
+    local holoPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'holographic_display_position')
+    DuelPrint('[DEBUG] InitTable: holographic_display_position calculated as x='..holoPos.x..', y='..holoPos.y..', z='..holoPos.z)
+    holographicDisplayPosition = {x=holoPos.x, y=holoPos.y, z=holoPos.z}
 
     holoDisplayAngle = ( ( math.atan2(tableCenterPoint.y - playerPlayingPosition.y, tableCenterPoint.x - tableCenterPoint.x) ) * 180 / math.pi ) + 225
     holoDisplayAngleRad = holoDisplayAngle * math.pi / 180
 
-    local boardOriginxy = RotatePoint({x=tableCenterPoint.x, y=tableCenterPoint.y}, {x=tableCenterPoint.x -2.182648465571, y=tableCenterPoint.y -0.44227742051612}, table.tableRotation)
+    -- Get table board origin
+    local boardOriginPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'table_board_origin')
+    DuelPrint('[DEBUG] InitTable: table_board_origin calculated as x='..boardOriginPos.x..', y='..boardOriginPos.y..', z='..boardOriginPos.z)
     -- Update tableBoardOrigin fields directly so ChipUtils reference stays valid
-    tableBoardOrigin.x = boardOriginxy.x
-    tableBoardOrigin.y = boardOriginxy.y
-    tableBoardOrigin.z = tableCenterPoint.z +0.09668642
+    tableBoardOrigin.x = boardOriginPos.x
+    tableBoardOrigin.y = boardOriginPos.y
+    tableBoardOrigin.z = boardOriginPos.z
     
     -- Also update ChipUtils with the new values
     ChipUtils.UpdateTableBoardOrigin(tableBoardOrigin)
-
-
+    
+    -- Get mappin position for debug
+    local mappinPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'mappin_position')
+    DuelPrint('[DEBUG] InitTable: mappin_position calculated as x='..mappinPos.x..', y='..mappinPos.y..', z='..mappinPos.z)
 end
 
 function DespawnTable() --despawns ents and resets script variables
-    --despawn all known custom ents
-    DeRegisterEntity('roulette_spinner')
-    DeRegisterEntity('roulette_spinner_frame')
-    DeRegisterEntity('roulette_ball')
+    local activeTableID = TableManager.GetActiveTable()
+    
+    -- Use TableManager to cleanup roulette entities
+    if activeTableID then
+        TableManager.cleanupTableEntities(activeTableID)
+    end
+    
+    -- Also remove from local entRecords for consistency
+    -- (TableManager already despawned them, but we need to clean up our tracking)
+    local entitiesToRemove = {'roulette_spinner', 'roulette_spinner_frame', 'roulette_ball'}
+    for _, devName in ipairs(entitiesToRemove) do
+        local foundMatch = 1
+        while foundMatch > 0 do
+            foundMatch = 0
+            for i, v in ipairs(entRecords) do
+                if v.name == devName then
+                    table.remove(entRecords, i)
+                    foundMatch = 1
+                    break
+                end
+            end
+        end
+    end
     
     -- Stop holographic display if active (this will despawn the stand entity)
     if holographicDisplayActive then
@@ -667,6 +784,7 @@ function DespawnTable() --despawns ents and resets script variables
         holographicDisplayActive = false
     end
 
+    -- Clean up bet chip entities (these are still managed by the local system)
     local betsPiles = ChipBetPiles.GetBetsPiles()
     for i, v in ipairs(currentBets) do
         local localPile = betsPiles[v.id]
@@ -1275,7 +1393,7 @@ function RepeatBets() --for each in previous bets, place bet into current bets
     end
 end
 
-function UpdateJoinUI(showUI) --show or hide join UI depending on.. something, idk it changed since I wrote this comment
+function UpdateJoinUI(showUI, tableID) --show or hide join UI depending on.. something, idk it changed since I wrote this comment
     if not inRouletteTable  then
         if showUI == true then
             local choice_JoinTable = interactionUI.createChoice(GameLocale.Text("Join Table"), TweakDBInterface.GetChoiceCaptionIconPartRecord("ChoiceCaptionParts.SitIcon"), gameinteractionsChoiceType.QuestImportant)
@@ -1286,10 +1404,14 @@ function UpdateJoinUI(showUI) --show or hide join UI depending on.. something, i
                 interactionUI.hideHub()
                 StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoMovement") -- Disable player movement
                 StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoCombat")
-                --local playerTransform = Game.GetPlayer():GetWorldTransform()
-                --local orientation = playerTransform:GetOrientation()
-                local joinLocationxy = RotatePoint({x=tableCenterPoint.x, y=tableCenterPoint.y}, {x=tableCenterPoint.x-0.80787625665175, y=tableCenterPoint.y-1.085349415275}, activeTable.tableRotation)
-                Game.GetTeleportationFacility():Teleport(GetPlayer(), Vector4.new(joinLocationxy.x, joinLocationxy.y, tableCenterPoint.z-0.93531358, 1), EulerAngles.new(0, 0, 340+activeTable.tableRotation)) -- Vector4.new(-1034.435, 1340.8057, 5.278, 1)
+                
+                -- Get player playing position using RelativeCoordinateCalulator
+                local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_playing_position')
+                -- Calculate player orientation (340 degrees + table rotation)
+                local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+                local tableEuler = tableData.orientation:ToEulerAngles()
+                local playerYaw = 340 + tableEuler.yaw
+                Game.GetTeleportationFacility():Teleport(GetPlayer(), playerPos, EulerAngles.new(0, 0, playerYaw))
                 
                 -- Start holographic display when player joins table
                 if holographicDisplayPosition and not holographicDisplayActive then
