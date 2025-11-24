@@ -149,11 +149,13 @@ function RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, offset
     local basePosition
     local baseOrientation
     
-    -- Special case: spinner_center_point is a fixed world-space offset from table to spinner
-    -- It should NOT be rotated because it's a fixed physical offset in world space
+    -- spinner_center_point is an offset in the table's local space
+    -- It should be rotated by table orientation to get world-space offset
+    -- The registered offset value was measured from hooh table in world space, but represents
+    -- the local-space relationship (spinner position relative to table in table's coordinate system)
     if offsetID == 'spinner_center_point' then
-        -- No rotation for fixed offset - add directly to table position
-        transformedOffsetPosition = offsetPositionVector
+        -- Rotate the offset by table orientation (it's in table's local space)
+        transformedOffsetPosition = table.orientation:Transform(offsetPositionVector)
         basePosition = table.position
         baseOrientation = table.orientation
     else

@@ -12,17 +12,19 @@ RouletteCoordinates = {
 ---Initializes all roulette table coordinates and offsets
 function RouletteCoordinates.init()
     -- Register roulette-specific offsets
-    -- IMPORTANT: spinner_center_point is a fixed world-space offset from table position (NOT rotated)
+    -- IMPORTANT: spinner_center_point is an offset in the table's local coordinate space
+    -- It will be rotated by table orientation, then added to table position
     -- All other offsets are relative to spinner_center_point (rotated, then added to spinner center)
     
-    -- Spinner center point - fixed world-space offset from table position to spinner center
-    -- This offset is NOT rotated because it's a fixed physical offset in world space
-    -- OLD: SpinnerCenterPoint = {x=-1045.09375, y=1345.21069, z=6.21331358}
-    -- NEW: Table position = {x=-1044.130, y=1345.323, z=5.232}
-    -- Offset = SpinnerCenterPoint - TablePosition = {-0.96375, -0.11231, 0.98131358}
+    -- Spinner center point - offset from table position to spinner center in table's local space
+    -- This offset IS rotated by table orientation because it's in the table's local coordinate system
+    -- The offset was measured from hooh table: world-space difference was {-0.96375, -0.11231, 0.98131358}
+    -- Hooh orientation is approximately 180° around Z, so local-space offset is approximately the inverse
+    -- After testing, the correct local-space offset is: {0.96375, 0.11231, 0.98131358}
+    -- This ensures: table_pos + (table_orientation * local_offset) = correct spinner position
     RelativeCoordinateCalulator.registerOffset(
         'spinner_center_point',
-        Vector4.new(-0.96375, -0.11231, 0.98131358, 0),  -- Fixed offset from table to spinner (no rotation)
+        Vector4.new(0.96375, 0.11231, 0.98131358, 0),  -- Local-space offset (will be rotated by table orientation)
         Quaternion.new(0, 0, 0, 1)
     )
     
@@ -106,7 +108,8 @@ function RouletteCoordinates.init()
     
     -- tygerclawscasino table
     -- CORRECTED: Table position (not spinner center)
-    local tygerclawsPosition = Vector4.new(-64.694, -281.893, -2.494, 1)
+    -- Z adjusted: -2.494 -> -2.557 to account for Z offset difference (needs 0.918 vs 0.981)
+    local tygerclawsPosition = Vector4.new(-64.694, -281.893, -2.557, 1)
     -- CORRECTED: Orientation as Quaternion (i, j, k, r)
     local tygerclawsOrientation = Quaternion.new(0.0, 0.0, 0.997, -0.080)
     RelativeCoordinateCalulator.registerTable('tygerclawscasino', tygerclawsPosition, tygerclawsOrientation)
