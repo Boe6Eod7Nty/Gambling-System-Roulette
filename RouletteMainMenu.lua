@@ -17,7 +17,7 @@ local GameLocale = require("External/GameLocale.lua")
 -- betsPlacesTaken, queueUIBet, betCategories, betCategoryIndexes
 -- chip_values, betSizingSets, PlaceBet(), RepeatBets()
 -- AddValueCommas(), holographicDisplayActive
--- HolographicValueDisplay, tableCenterPoint, RotatePoint()
+-- HolographicValueDisplay
 -- TableManager, RelativeCoordinateCalulator, GetActiveTableRotation()
 -- showCustomBuyChips, showCustomBetChips
 -- Animation flags: Use RouletteAnimations.roulette_spinning and RouletteAnimations.ball_spinning
@@ -133,15 +133,13 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
                     -- Fallback: use default position if no active table
                     Game.GetTeleportationFacility():Teleport(GetPlayer(), Vector4.new(-1034.6504, 1340.8641, 5.278, 1), EulerAngles.new(0, 0, 340))
                 else
-                    -- Get table center point and rotation
-                    local spinnerCenterPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'spinner_center_point')
-                    local tableData = RelativeCoordinateCalulator.registeredTables[activeTableID]
+                    -- Calculate player exit position using RelativeCoordinateCalulator
+                    local exitPosition, exitOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'player_exit_position')
                     local tableRotation = GetActiveTableRotation()
                     
-                    if spinnerCenterPos and tableRotation then
-                        local tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
-                        local leavePositionxy = RotatePoint({x=tableCenterPoint.x, y=tableCenterPoint.y}, {x=tableCenterPoint.x-0.86706985804199, y=tableCenterPoint.y-1.3005326803182}, tableRotation)
-                        Game.GetTeleportationFacility():Teleport(GetPlayer(), Vector4.new(leavePositionxy.x, leavePositionxy.y, tableCenterPoint.z-0.93531358, 1), EulerAngles.new(0, 0, 340+tableRotation))
+                    if exitPosition and tableRotation then
+                        -- Use calculated exit position with proper rotation (340 degrees + table rotation)
+                        Game.GetTeleportationFacility():Teleport(GetPlayer(), exitPosition, EulerAngles.new(0, 0, 340+tableRotation))
                     else
                         -- Fallback: use default position if calculation fails
                         Game.GetTeleportationFacility():Teleport(GetPlayer(), Vector4.new(-1034.6504, 1340.8641, 5.278, 1), EulerAngles.new(0, 0, 340))

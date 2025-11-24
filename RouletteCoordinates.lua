@@ -46,6 +46,14 @@ function RouletteCoordinates.init()
         Quaternion.new(0, 0, 0, 1)
     )
     
+    -- Player exit position (where player teleports when leaving table)
+    -- OLD: Calculated via RotatePoint from SpinnerCenterPoint: {-0.86706985804199, -1.3005326803182, -0.93531358}
+    RelativeCoordinateCalulator.registerOffset(
+        'player_exit_position',
+        Vector4.new(-0.86706985804199, -1.3005326803182, -0.93531358, 0),  -- Original offset, relative to spinner
+        Quaternion.new(0, 0, 0, 1)
+    )
+    
     -- Holographic display position (holo display location)
     -- OLD: Relative to SpinnerCenterPoint: {0.17977070965503, -0.55898646070364, +0.23668642}
     -- CORRECTED: Spinner Z=6.213, Expected holographic Z=6.307, so offset should be 0.094
