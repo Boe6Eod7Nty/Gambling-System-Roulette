@@ -286,36 +286,22 @@ local callback40x = function()
         StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCombat")
         --idk if these need to be set but better safe than sorry. Loading bugs are hard to pinpoint.
         inRouletteTable = false
-        if gameLoadDelayCount == 0 then
-            DuelPrint('[DEBUG] callback40x: Starting game load delay (count='..gameLoadDelayCount..', delay='..gameLoadDelayTime..')')
-        end
     end
     if not areaInitialized and gameLoadDelayCount >= gameLoadDelayTime then --checks if area is loaded, and if the game has been running.
-        if gameLoadDelayCount == gameLoadDelayTime then
-            DuelPrint('[DEBUG] callback40x: Game load delay complete, checking for nearby tables...')
-            DuelPrint('[DEBUG] callback40x: areaInitialized='..tostring(areaInitialized))
-            DuelPrint('[DEBUG] callback40x: registeredTables count='..tostring(TableManager.countRegisteredTables()))
-        end
-        
         local playerPosition = GetPlayer():GetWorldPosition()
-        DuelPrint('[DEBUG] callback40x: Player position: ('..playerPosition.x..', '..playerPosition.y..', '..playerPosition.z..')')
         
         -- Check all registered tables for nearby loading
         local tablesChecked = 0
         for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
             tablesChecked = tablesChecked + 1
-            DuelPrint('[DEBUG] callback40x: Checking table: '..tostring(tableID))
             
             local isNearby = TableManager.loadTableIfNearby(tableID, tableLoadDistance, playerPosition)
-            DuelPrint('[DEBUG] callback40x: Table '..tostring(tableID)..' isNearby='..tostring(isNearby))
             
             if isNearby then
                 local isLoaded = TableManager.isTableLoaded(tableID)
-                DuelPrint('[DEBUG] callback40x: Table '..tostring(tableID)..' isLoaded='..tostring(isLoaded))
                 
                 if not isLoaded then
                     -- Table is nearby but not initialized yet
-                    DuelPrint('[DEBUG] callback40x: Initializing table: '..tostring(tableID))
                     areaInitialized = true
                     TableManager.setTableLoaded(tableID, true)
                     InitTable(tableID)
@@ -624,15 +610,11 @@ function GetActiveTableRotation()
 end
 
 function InitTable(tableID)
-    DuelPrint('[DEBUG] ========== InitTable CALLED ==========')
-    DuelPrint('[DEBUG] InitTable: tableID='..tostring(tableID))
-    
     --Game.GetWorldStateSystem():DeactivateCommunity(CreateNodeRef("#kab_07_com_ground_floor_crowd"), "Clients_male") --"deactivate"/despawn guy in roulette seat, uses codeware
     -- found in RedHotTools, node ref final /xyz/    --found in community file, match Record ID = CharacterRecordID in community file, use entryName value
     -- removing this in the future and using a phycial table that doesn't need NPCs removed.
 
     TableManager.SetActiveTable(tableID)
-    DuelPrint('[DEBUG] InitTable: Active table set to '..tostring(tableID))
     
     -- Get table center point (spinner center point) - MUST be set before spawning entities
     local spinnerCenterPos, spinnerOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
@@ -642,34 +624,26 @@ function InitTable(tableID)
     end
     tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
     
+    -- Log table and spinner positions at startup
+    local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+    if tableData then
+        DuelPrint('[INFO] Table '..tostring(tableID)..' position: ('..tableData.position.x..', '..tableData.position.y..', '..tableData.position.z..')')
+    end
+    DuelPrint('[INFO] Spinner position for '..tostring(tableID)..': ('..spinnerCenterPos.x..', '..spinnerCenterPos.y..', '..spinnerCenterPos.z..')')
+    
     -- Update RouletteAnimations with table center point immediately
     RouletteAnimations.UpdateBallCenter(tableCenterPoint)
 
     -- Spawn roulette entities using TableManager
-    DuelPrint('[DEBUG] ========== InitTable: Starting entity spawns ==========')
-    DuelPrint('[DEBUG] InitTable: Spawning roulette_spinner')
-    DuelPrint('[DEBUG] InitTable: roulette_spinner path: '..tostring(roulette_spinner))
-    DuelPrint('[DEBUG] InitTable: Position: ('..spinnerCenterPos.x..', '..spinnerCenterPos.y..', '..spinnerCenterPos.z..')')
-    
     local spinnerEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner', roulette_spinner, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
-    if spinnerEntID then
-        DuelPrint('[DEBUG] InitTable: roulette_spinner spawned successfully with ID: '..tostring(spinnerEntID))
-    else
+    if not spinnerEntID then
         DuelPrint('[==e ERROR: InitTable: Failed to spawn roulette_spinner entity')
     end
     
-    DuelPrint('[DEBUG] InitTable: Spawning roulette_ball')
-    DuelPrint('[DEBUG] InitTable: roulette_ball path: '..tostring(roulette_ball))
-    DuelPrint('[DEBUG] InitTable: Position: ('..spinnerCenterPos.x..', '..spinnerCenterPos.y..', '..spinnerCenterPos.z..')')
-    
     local ballEntID = TableManager.spawnTableEntity(tableID, 'roulette_ball', roulette_ball, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
-    if ballEntID then
-        DuelPrint('[DEBUG] InitTable: roulette_ball spawned successfully with ID: '..tostring(ballEntID))
-    else
+    if not ballEntID then
         DuelPrint('[==e ERROR: InitTable: Failed to spawn roulette_ball entity')
     end
-    
-    DuelPrint('[DEBUG] ========== InitTable: Entity spawns complete ==========')
     
     -- Register entities in local entRecords system for compatibility with FindEntIdByName, SetRotateEnt, etc.
     -- Check if already exists to prevent duplicates
@@ -720,18 +694,15 @@ function InitTable(tableID)
 
     -- Get player pile position
     local playerPilePos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_pile_position')
-    DuelPrint('[DEBUG] InitTable: player_pile_position calculated as x='..playerPilePos.x..', y='..playerPilePos.y..', z='..playerPilePos.z)
     local playerPile = ChipPlayerPile.GetPlayerPile()
     playerPile.location = {x=playerPilePos.x, y=playerPilePos.y, z=playerPilePos.z}
 
     -- Get player playing position
     local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_playing_position')
-    DuelPrint('[DEBUG] InitTable: player_playing_position calculated as x='..playerPos.x..', y='..playerPos.y..', z='..playerPos.z)
     playerPlayingPosition = {x=playerPos.x, y=playerPos.y, z=playerPos.z}
 
     -- Get holographic display position
     local holoPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'holographic_display_position')
-    DuelPrint('[DEBUG] InitTable: holographic_display_position calculated as x='..holoPos.x..', y='..holoPos.y..', z='..holoPos.z)
     holographicDisplayPosition = {x=holoPos.x, y=holoPos.y, z=holoPos.z}
 
     holoDisplayAngle = ( ( math.atan2(tableCenterPoint.y - playerPlayingPosition.y, tableCenterPoint.x - tableCenterPoint.x) ) * 180 / math.pi ) + 225
@@ -739,7 +710,6 @@ function InitTable(tableID)
 
     -- Get table board origin
     local boardOriginPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'table_board_origin')
-    DuelPrint('[DEBUG] InitTable: table_board_origin calculated as x='..boardOriginPos.x..', y='..boardOriginPos.y..', z='..boardOriginPos.z)
     -- Update tableBoardOrigin fields directly so ChipUtils reference stays valid
     tableBoardOrigin.x = boardOriginPos.x
     tableBoardOrigin.y = boardOriginPos.y
@@ -747,10 +717,6 @@ function InitTable(tableID)
     
     -- Also update ChipUtils with the new values
     ChipUtils.UpdateTableBoardOrigin(tableBoardOrigin)
-    
-    -- Get mappin position for debug
-    local mappinPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'mappin_position')
-    DuelPrint('[DEBUG] InitTable: mappin_position calculated as x='..mappinPos.x..', y='..mappinPos.y..', z='..mappinPos.z)
 end
 
 function DespawnTable() --despawns ents and resets script variables

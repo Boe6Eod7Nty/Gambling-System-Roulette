@@ -195,11 +195,7 @@ function TableManager.spawnTableEntity(tableID, entityName, entPath, position, o
         if not IsStringValid(entPath) then
             DualPrint('[==e ERROR: entPath string is not valid: '..tostring(entPath))
             return nil
-        else
-            DualPrint('[DEBUG] IsStringValid check passed for: '..tostring(entPath))
         end
-    else
-        DualPrint('[DEBUG] IsStringValid not available, skipping validation')
     end
     
     local spec = DynamicEntitySpec.new()
@@ -234,16 +230,6 @@ function TableManager.spawnTableEntity(tableID, entityName, entPath, position, o
     spec.active = true
     spec.tags = entityTags
     
-    -- Extensive debug logging for entity spawning
-    DualPrint('[DEBUG] ========== TableManager.spawnTableEntity START ==========')
-    DualPrint('[DEBUG] entityName: '..tostring(entityName))
-    DualPrint('[DEBUG] tableID: '..tostring(tableID))
-    DualPrint('[DEBUG] entPath: '..tostring(entPath))
-    DualPrint('[DEBUG] entPath type: '..type(entPath))
-    DualPrint('[DEBUG] isRecord: '..tostring(isRecord))
-    DualPrint('[DEBUG] position: Vector4('..position.x..', '..position.y..', '..position.z..', '..position.w..')')
-    DualPrint('[DEBUG] orientation: Quaternion('..orientation.i..', '..orientation.j..', '..orientation.k..', '..orientation.r..')')
-    
     -- Check if entPath is valid
     if type(entPath) ~= 'string' then
         DualPrint('[==e ERROR: entPath is not a string! Type: '..type(entPath))
@@ -261,51 +247,21 @@ function TableManager.spawnTableEntity(tableID, entityName, entPath, position, o
         return nil
     end
     
-    -- Log spec details
+    -- Verify record exists if using recordID
     if isRecord then
-        DualPrint('[DEBUG] Using recordID: '..tostring(spec.recordID))
-        -- Verify record exists
-        if TweakDB and TweakDB:GetRecord(spec.recordID) then
-            DualPrint('[DEBUG] Record exists in TweakDB')
-        else
+        if TweakDB and not TweakDB:GetRecord(spec.recordID) then
             DualPrint('[==e ERROR: Record does NOT exist in TweakDB: '..tostring(spec.recordID))
         end
-    else
-        DualPrint('[DEBUG] Using templatePath: '..tostring(spec.templatePath))
-    end
-    
-    DualPrint('[DEBUG] spec.appearanceName: '..tostring(spec.appearanceName))
-    DualPrint('[DEBUG] spec.alwaysSpawned: '..tostring(spec.alwaysSpawned))
-    DualPrint('[DEBUG] spec.spawnInView: '..tostring(spec.spawnInView))
-    DualPrint('[DEBUG] spec.active: '..tostring(spec.active))
-    DualPrint('[DEBUG] spec.tags count: '..tostring(#entityTags))
-    for i, tag in ipairs(entityTags) do
-        DualPrint('[DEBUG]   tag['..i..']: '..tostring(tag))
     end
     
     -- Attempt to create entity
-    DualPrint('[DEBUG] Calling dynamicEntitySystem:CreateEntity(spec)...')
     local entID = dynamicEntitySystem:CreateEntity(spec)
-    DualPrint('[DEBUG] CreateEntity returned: '..tostring(entID))
     
     if entID then
-        -- Verify entity exists
-        local entity = Game.FindEntityByID(entID)
-        if entity then
-            local entityPos = entity:GetWorldPosition()
-            DualPrint('[DEBUG] Entity found in world at: ('..entityPos.x..', '..entityPos.y..', '..entityPos.z..')')
-        else
-            DualPrint('[==e WARNING: Entity ID returned but Game.FindEntityByID returned nil!')
-        end
-        
         TableManager.tableEntities[tableID][entityName] = entID
-        DualPrint('[DEBUG] Entity '..entityName..' spawned successfully with ID: '..tostring(entID))
     else
-        DualPrint('[==e ERROR: CreateEntity returned nil! Entity spawn failed.')
         DualPrint('[==e ERROR: Failed to spawn entity '..entityName..' for table '..tableID)
     end
-    
-    DualPrint('[DEBUG] ========== TableManager.spawnTableEntity END ==========')
     return entID
 end
 
@@ -502,11 +458,8 @@ end
 function TableManager.loadTableIfNearby(tableID, distance, playerPosition)
     distance = distance or 20
     
-    DualPrint('[DEBUG] loadTableIfNearby: tableID='..tostring(tableID)..', distance='..tostring(distance))
-    
     -- Check if already loaded
     if TableManager.tableLoaded[tableID] then
-        DualPrint('[DEBUG] loadTableIfNearby: Table '..tostring(tableID)..' is already loaded')
         return true
     end
     
@@ -520,12 +473,9 @@ function TableManager.loadTableIfNearby(tableID, distance, playerPosition)
         playerPosition = player:GetWorldPosition()
     end
     
-    DualPrint('[DEBUG] loadTableIfNearby: Player position: ('..playerPosition.x..', '..playerPosition.y..', '..playerPosition.z..')')
-    
     -- Get table center position
     local tableCenterPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
     if not tableCenterPos then
-        DualPrint('[DEBUG] loadTableIfNearby: Failed to get spinner_center_point, falling back to table position')
         -- Fallback to table position
         local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
         if not tableData then
@@ -535,21 +485,14 @@ function TableManager.loadTableIfNearby(tableID, distance, playerPosition)
         tableCenterPos = tableData.position
     end
     
-    DualPrint('[DEBUG] loadTableIfNearby: Table center position: ('..tableCenterPos.x..', '..tableCenterPos.y..', '..tableCenterPos.z..')')
-    
     -- Calculate distance (2D distance, ignoring Z)
     local dx = playerPosition.x - tableCenterPos.x
     local dy = playerPosition.y - tableCenterPos.y
     local distanceToTable = math.sqrt(dx * dx + dy * dy)
     
-    DualPrint('[DEBUG] loadTableIfNearby: Distance calculation: dx='..dx..', dy='..dy..', distanceToTable='..distanceToTable..', threshold='..distance)
-    
     if distanceToTable < distance then
-        DualPrint('[DEBUG] loadTableIfNearby: Table '..tostring(tableID)..' is within range!')
         -- NOTE: Do NOT set tableLoaded here - that should be done by the caller after InitTable is called
         return true
-    else
-        DualPrint('[DEBUG] loadTableIfNearby: Table '..tostring(tableID)..' is too far away (distance='..distanceToTable..', threshold='..distance..')')
     end
     
     return false
