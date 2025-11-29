@@ -590,7 +590,7 @@ function ChipUtils.WideHexSearch(localPile, hexCoords, cIndex) --from a coordina
         if roundedOutCoords.y ~= 0 then roundedOutCoords.y = math.floor((relativeOutCoords.y*divisorN)+0.5) end
         if roundedOutCoords.z ~= 0 then roundedOutCoords.z = math.floor((relativeOutCoords.z*divisorN)+0.5) end
         if roundedOutCoords.x == 0 and roundedOutCoords.y == 0 and roundedOutCoords.z == 0 then --full force! hopefully never triggers
-            if DualPrint then DualPrint('=e FORCED ERROR! Code: 6578') end
+            if DualPrint then DualPrint('=e Minor chip placement error, forcing a spot change. Code: 6578') end
             roundedOutCoords.x = 1
         end
     end
