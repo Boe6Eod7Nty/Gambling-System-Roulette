@@ -61,12 +61,6 @@ local TableManager = require('TableManager.lua')
 local SpotManager = require("SpotManager.lua")
 
 
---Modules
---=======
---local spinning = require("spinning.lua")
-
--- yeah NVM I'll teach myself modularization for my next project lol
-
 --'global' variables (uncategorized)
 --==================
 local areaInitialized = false --defines if a roulette table is currently loaded
@@ -103,26 +97,16 @@ local tableBoardOrigin = {x=-1033.7970, y=1342.182833333, z=6.310} --default val
 
 -- ent files used to create entities
 local chip_broken = "base\\gameplay\\items\\misc\\appearances\\broken_poker_chip_junk.ent"
-local chips_allin = "ep1\\quest\\main_quests\\q303\\entities\\q303_chips_all_in.ent"
-local chips_table = "ep1\\quest\\main_quests\\q303\\entities\\q303_chips_table.ent"
+local chips_allin = "ep1\\quest\\main_quests\\q303\\entities\\q303_chips_all_in.ent" --unused currently
+local chips_table = "ep1\\quest\\main_quests\\q303\\entities\\q303_chips_table.ent" --unused currently
 local roulette_ball = "boe6\\gambling_system_roulette\\q303_roulette_ball.ent" --PL .ent, object duplicated into project custom path to remove PL dependancy
 local chip_stacks = "boe6\\gambling_system_roulette\\q303_chips_stacks_edit.ent"
 local poker_chip = "boe6\\gambling_props\\boe6_poker_chip.ent"
 local roulette_spinner = "boe6\\gambling_system_roulette\\casino_table_roulette_spin_spinner.ent"
 local roulette_spinner_frame = "boe6\\gambling_system_roulette\\casino_table_roulette_spin_spinner_frame.ent"
-local number_digit = "boe6\\gambling_system_roulette\\boe6_number_digit.ent"
 local high_school_usa_font = "boe6\\gambling_system_roulette\\high-school-usa-font.ent"
-local playing_card = "boe6\\gambling_props\\boe6_playing_card.ent"
+local playing_card = "boe6\\gambling_props\\boe6_playing_card.ent" --unused currently
 
--- Animation variables moved to RouletteAnimations.lua module
--- Access via: RouletteAnimations.roulette_spinning, RouletteAnimations.ball_spinning
-
---chip stacks global variables (now managed by ChipPlayerPile and ChipBetPiles modules)
-
--- Game Status Variables
-local tableChips = 0 --amount of player money on the table. This needs to be saved between sessions somehow, otherwise loading a save mid-game will delete players money ¯\_(ツ)_/¯
-local bettingStyle = 'basic' -- Betting styles = basic, simple, standard, advanced. Also should be saved between sessions somehow
-local spin_results = '' --stores a record of every spin that occurs in the game. Stored by slot index 1-37
 
 -- Game value references
 local roulette_slots = {
@@ -606,33 +590,18 @@ end)
 registerHotkey('DevHotkey2', 'Dev Hotkey 2', function()
     DuelPrint('||=2  Dev hotkey 2 Pressed =')
 
-    DespawnTable()
 end)
 registerHotkey('DevHotkey3', 'Dev Hotkey 3', function()
     DuelPrint('||=3  Dev hotkey 3 Pressed =')
 
-    -- Clear/delete all entities
-    local devNameTable = {}
-    for i,v in ipairs(entRecords) do
-        DuelPrint('=3 LIST i: '..i..' devName: '..v.name)
-        table.insert(devNameTable, v.name)
-    end
-    for i,v in ipairs(devNameTable) do
-        DuelPrint('=3 REAL i: '..i..' devName: '..v)
-        DeRegisterEntity(v)
-    end
-    --reset player pile
-    ChipPlayerPile.Clear()
 end)
 registerHotkey('DevHotkey4', 'Dev Hotkey 4', function()
     DuelPrint('||=4  Dev hotkey 4 Pressed =')
 
-    ChipPlayerPile.DebugPlayerPile()
 end)
 registerHotkey('DevHotkey5', 'Dev Hotkey 5', function()
     DuelPrint('||=5  Dev hotkey 5 Pressed =')
 
-    ForceClearAllEnts()
 end)
 registerHotkey('DevHotkey6', 'Dev Hotkey 6', function()
     DuelPrint('||=6  Dev hotkey 6 Pressed =')
@@ -1094,25 +1063,6 @@ function ShowHoloResult(number, color)
     Cron.After(5, callback)
 
 end
-
--- ValueToPileQueueSimple moved to ChipUtils
--- ValueToQueueSubtraction moved to ChipUtils
--- QueuedChipSubtraction moved to ChipPlayerPile
--- QueuedBetChipAddition moved to ChipBetPiles
--- QueuedChipAddition moved to ChipPlayerPile
--- FindAndSpawnStack moved to ChipUtils
--- FindNextStackLayoutLocation moved to ChipUtils
--- StackLocationSearchStep moved to ChipUtils
--- CheckEmptyAndShift moved to ChipUtils
--- SearchStuckExit moved to ChipUtils
--- AveragePileLocationFloat moved to ChipUtils
--- MediumSearchAggressive moved to ChipUtils
--- WideHexSearch moved to ChipUtils
--- CountSevenHex moved to ChipUtils
--- CheckStackLayoutCoords moved to ChipUtils
--- CreateBetStack moved to ChipBetPiles
--- HexToBoardCoords moved to ChipUtils
--- RemoveBetStack moved to ChipBetPiles
 
 function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (from wheel being spun) and processes bets/winners
     local resultLabel = roulette_slots[resultIndex].label
