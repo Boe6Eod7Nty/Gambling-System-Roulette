@@ -28,7 +28,6 @@ Roulette = {
 --keanuwheeze for their init.lua from the sitAnywhere mod. Marked in comments where used.
 --psiberx for GameUI.lua, a Reactive Game UI State Observer
 --keanuwheeze for helping with variable scope issues [ This one took an age, ty again keanuwheeze <3 ]
---keanuwheeze for workspotUtils.lua, used for audio, effects, & HUD toggle.
 --cyswip from Roblox dev forums for AddValueCommas() function
 --psiberx for GameLocale.lua, which is used for translations
 --psiberx for GameSession.lua, which detects game load/save events
@@ -46,7 +45,6 @@ Roulette = {
 local Cron = require('External/Cron.lua')
 local interactionUI = require("External/interactionUI.lua")
 local GameUI = require("External/GameUI.lua")
-local utils = require("External/workspotUtils.lua")
 local GameLocale = require("External/GameLocale.lua")
 local GameSession = require('External/GameSession.lua')
 local HolographicValueDisplay = require("HolographicValueDisplay.lua")
@@ -241,7 +239,6 @@ betsPlacesTaken = {
 -- Holographic value display variables
 holographicDisplayActive = false
 local holographicDisplayPosition = nil
-local subtractionValueLoopCount = 0
 
 --winning result holo
 local holoDisplayAngle = ( ( math.atan2(tableCenterPoint.y - playerPlayingPosition.y, tableCenterPoint.x - tableCenterPoint.x) ) * 180 / math.pi ) - 45
