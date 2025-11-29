@@ -443,9 +443,6 @@ function SpotManager.init() --runs on game launch
 
 end
 function SpotManager.update(dt) --runs every frame
-    if  not inMenu and inGame then
-        Cron.Update(dt) -- This is required for Cron to function
-    end
     updateForcedCamera()
 end
 
