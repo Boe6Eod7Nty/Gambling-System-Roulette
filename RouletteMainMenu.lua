@@ -30,6 +30,9 @@ local GameLocale = require("External/GameLocale.lua")
 ---@param choicesFonts table
 ---@param choiceActions table
 function CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choiceActions)
+    -- Clear old callbacks before assigning new ones
+    interactionUI.clearCallbacks()
+    
     local hubQueue = {}
     for i = 1, choiceCount do
         hubQueue[i] = interactionUI.createChoice(choicesStrings[i], TweakDBInterface.GetChoiceCaptionIconPartRecord(choicesIcons[i]), choicesFonts[i])

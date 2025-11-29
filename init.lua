@@ -817,12 +817,12 @@ function DespawnTable() --despawns ents and resets script variables
         tableChips = 0
         spin_results = ''
         betsPlacesTaken = {
-            {false, false},
-            {false},
-            {false},
-            {false},
-            {false},
-            {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+            {false, false}, -- red, black
+            {false, false}, -- odd, even (outside)
+            {false, false}, -- High, Low (outside)
+            {false, false, false}, -- 1st column, 2nd column, 3rd column (outside)
+            {false, false, false}, -- 1-12, 13-24, 25-36 (outside)
+            {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- straight up
             {false},
             {false},
             {false},
