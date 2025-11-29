@@ -36,16 +36,14 @@ end
 local function getDialogChoiceHubs()
     local ib = Game.GetBlackboardSystem():Get(GetAllBlackboardDefs().UIInteractions)
     
-    local success, errorMessage = pcall(function()--added error handle by boe6
+    local success, errorMessage = pcall(function() --added error handling, --boe6
         if ib == nil then
             error("Failed to get UIInteractions blackboard")
         end
     end)
     
-    if not success then
-        -- Handle the error here
-        -- You can choose to ignore it, log it, or take any other appropriate action
-        DuelPrint(" }{ Error: " .. errorMessage)
+    if not success then --boe6
+        DualPrint(" }{ Error: " .. errorMessage) --boe6
     end
 
     local ibd = GetAllBlackboardDefs().UIInteractions

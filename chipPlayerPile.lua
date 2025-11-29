@@ -19,7 +19,7 @@ local RegisterEntity = nil
 local DeRegisterEntity = nil
 local FindEntIdByName = nil
 local SetRotateEnt = nil
-local DuelPrint = nil
+local DualPrint = nil
 local poker_chip = nil
 
 -- Local data
@@ -46,7 +46,7 @@ function ChipPlayerPile.Initialize(deps)
     DeRegisterEntity = deps.DeRegisterEntity
     FindEntIdByName = deps.FindEntIdByName
     SetRotateEnt = deps.SetRotateEnt
-    DuelPrint = deps.DuelPrint
+    DualPrint = deps.DualPrint
     poker_chip = deps.poker_chip
 end
 
@@ -112,7 +112,7 @@ function ChipPlayerPile.QueuedChipSubtraction() -- each tick, subtract a chip fr
     local curentSingleAmount = localPile.singleStacks[localIndex]
     local newApp = curentSingleAmount - 1
     if newApp < 0 then
-        if DuelPrint then DuelPrint('=o ERROR: newApp < 0, CODE 2374') end
+        if DualPrint then DualPrint('=o ERROR: newApp < 0, CODE 2374') end
         table.remove(pileSubtractionQueue, 1)
         return
     end
@@ -206,13 +206,13 @@ function ChipPlayerPile.FindAndSpawnStack(localPile, localIndex, value) --create
         if rotation then
             tableRotation = rotation
         else
-            if DuelPrint then
-                DuelPrint('[==e WARNING: Could not get active table rotation in FindAndSpawnStack, using 0')
+            if DualPrint then
+                DualPrint('[==e WARNING: Could not get active table rotation in FindAndSpawnStack, using 0')
             end
         end
     else
-        if DuelPrint then
-            DuelPrint('[==e ERROR: GetActiveTableRotation function not available in FindAndSpawnStack!')
+        if DualPrint then
+            DualPrint('[==e ERROR: GetActiveTableRotation function not available in FindAndSpawnStack!')
         end
     end
     local stackRotation = (tableRotation + chipRotation) * math.pi / 180
@@ -251,21 +251,21 @@ function ChipPlayerPile.FindAndSpawnStack(localPile, localIndex, value) --create
 end
 
 function ChipPlayerPile.DebugPlayerPile()
-    if not DuelPrint then return end
-    DuelPrint('=  DebugPlayerPile() = DEBUG PLAYER PILE =')
-    DuelPrint('=  value: '..playerPile.value)
-    DuelPrint('=  singleStacks: {'..playerPile.singleStacks[1]..','..playerPile.singleStacks[2]..','..playerPile.singleStacks[3]..','..playerPile.singleStacks[4]..','..playerPile.singleStacks[5]..','..playerPile.singleStacks[6]..','
+    if not DualPrint then return end
+    DualPrint('=  DebugPlayerPile() = DEBUG PLAYER PILE =')
+    DualPrint('=  value: '..playerPile.value)
+    DualPrint('=  singleStacks: {'..playerPile.singleStacks[1]..','..playerPile.singleStacks[2]..','..playerPile.singleStacks[3]..','..playerPile.singleStacks[4]..','..playerPile.singleStacks[5]..','..playerPile.singleStacks[6]..','
                                 ..playerPile.singleStacks[7]..','..playerPile.singleStacks[8]..','..playerPile.singleStacks[9]..','..playerPile.singleStacks[10]..','..playerPile.singleStacks[11]..','..playerPile.singleStacks[12]..','
                                 ..playerPile.singleStacks[13]..','..playerPile.singleStacks[14]..','..playerPile.singleStacks[15]..','..playerPile.singleStacks[16]..'}')
-    DuelPrint('=  fullStacks: {'..playerPile.fullStacks[1]..','..playerPile.fullStacks[2]..','..playerPile.fullStacks[3]..','..playerPile.fullStacks[4]..','..playerPile.fullStacks[5]..','..playerPile.fullStacks[6]..','
+    DualPrint('=  fullStacks: {'..playerPile.fullStacks[1]..','..playerPile.fullStacks[2]..','..playerPile.fullStacks[3]..','..playerPile.fullStacks[4]..','..playerPile.fullStacks[5]..','..playerPile.fullStacks[6]..','
                                 ..playerPile.fullStacks[7]..','..playerPile.fullStacks[8]..','..playerPile.fullStacks[9]..','..playerPile.fullStacks[10]..','..playerPile.fullStacks[11]..','..playerPile.fullStacks[12]..','
                                 ..playerPile.fullStacks[13]..','..playerPile.fullStacks[14]..','..playerPile.fullStacks[15]..','..playerPile.fullStacks[16]..'}')
-    DuelPrint('=  location x: '..playerPile.location.x..' y: '..playerPile.location.y..' z: '..playerPile.location.z)
-    DuelPrint('=  stacksInfo = {} :')
+    DualPrint('=  location x: '..playerPile.location.x..' y: '..playerPile.location.y..' z: '..playerPile.location.z)
+    DualPrint('=  stacksInfo = {} :')
     for i,v in ipairs(playerPile.stacksInfo) do
-        DuelPrint('=  i: '..i..' stackDevName: '..v.stackDevName..' cIndex: '..v.cIndex..' hexCoords: '..v.hexCoords.x..','..v.hexCoords.y..','..v.hexCoords.z)
+        DualPrint('=  i: '..i..' stackDevName: '..v.stackDevName..' cIndex: '..v.cIndex..' hexCoords: '..v.hexCoords.x..','..v.hexCoords.y..','..v.hexCoords.z)
     end
-    DuelPrint('=  limits x: '..playerPile.limits.minX..','..playerPile.limits.maxX..' y: '..playerPile.limits.minY..','..playerPile.limits.maxY..' z: '..playerPile.limits.minZ..','..playerPile.limits.maxZ)
+    DualPrint('=  limits x: '..playerPile.limits.minX..','..playerPile.limits.maxX..' y: '..playerPile.limits.minY..','..playerPile.limits.maxY..' z: '..playerPile.limits.minZ..','..playerPile.limits.maxZ)
 end
 
 return ChipPlayerPile

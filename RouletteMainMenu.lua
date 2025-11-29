@@ -83,38 +83,38 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
     local choicesFonts = {repeatFont,placeFont,gameinteractionsChoiceType.Selected,buyFont,gameinteractionsChoiceType.AlreadyRead,cashOutFont}
     local choiceActions = {
         function() --"Repeat Bets"
-            --DuelPrint("Choice 1 used")
+            --DualPrint("Choice 1 used")
             if repeatFontBool then
                 interactionUI.hideHub()
                 RepeatBets()
             end
         end,
         function() --"Place Bets"
-            --DuelPrint("Choice 2 used")
+            --DualPrint("Choice 2 used")
             if placeFontBool then
                 interactionUI.hideHub()
                 RouletteMainMenu.PlaceBetsUI()
             end
         end,
         function() --"Spin Roulette Wheel"
-            --DuelPrint("Choice 3 used")
+            --DualPrint("Choice 3 used")
             interactionUI.hideHub()
             RouletteAnimations.StartSpin()
         
             Game.GetPlayer():PlaySoundEvent("q303_hotel_casino_roulette_ball_start")
         end,
         function() --"Buy Chips"
-            --DuelPrint("Choice 4 used")
+            --DualPrint("Choice 4 used")
             if buyFontBool then
                 interactionUI.hideHub()
                 RouletteMainMenu.BuyChipsUI()
             end
         end,
         function() --"Settings"
-            --DuelPrint("Choice 5 used")
+            --DualPrint("Choice 5 used")
         end,
         function() --"Cash Out"
-            --DuelPrint("Choice 6 used")
+            --DualPrint("Choice 6 used")
             if cashOutFontBool then
                 interactionUI.hideHub()
                 local playerPile = ChipPlayerPile.GetPlayerPile()
@@ -1002,7 +1002,7 @@ end
 ---Bet Street UI (placeholder - needs implementation)
 function RouletteMainMenu.BetStreetUI()
     -- TODO: Implement BetStreetUI
-    DuelPrint('BetStreetUI not yet implemented')
+    DualPrint('BetStreetUI not yet implemented')
     interactionUI.hideHub()
     RouletteMainMenu.PlaceBetsUI()
 end
@@ -1010,7 +1010,7 @@ end
 ---Bet Corner UI (placeholder - needs implementation)
 function RouletteMainMenu.BetCornerUI()
     -- TODO: Implement BetCornerUI
-    DuelPrint('BetCornerUI not yet implemented')
+    DualPrint('BetCornerUI not yet implemented')
     interactionUI.hideHub()
     RouletteMainMenu.PlaceBetsUI()
 end
@@ -1018,7 +1018,7 @@ end
 ---Bet Line UI (placeholder - needs implementation)
 function RouletteMainMenu.BetLineUI()
     -- TODO: Implement BetLineUI
-    DuelPrint('BetLineUI not yet implemented')
+    DualPrint('BetLineUI not yet implemented')
     interactionUI.hideHub()
     RouletteMainMenu.PlaceBetsUI()
 end

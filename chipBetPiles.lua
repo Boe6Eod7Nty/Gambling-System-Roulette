@@ -19,7 +19,7 @@ local RegisterEntity = nil
 local DeRegisterEntity = nil
 local FindEntIdByName = nil
 local SetRotateEnt = nil
-local DuelPrint = nil
+local DualPrint = nil
 local RouletteMainMenu = nil
 local poker_chip = nil
 
@@ -39,7 +39,7 @@ function ChipBetPiles.Initialize(deps)
     DeRegisterEntity = deps.DeRegisterEntity
     FindEntIdByName = deps.FindEntIdByName
     SetRotateEnt = deps.SetRotateEnt
-    DuelPrint = deps.DuelPrint
+    DualPrint = deps.DualPrint
     RouletteMainMenu = deps.RouletteMainMenu
     poker_chip = deps.poker_chip
 end
@@ -71,7 +71,7 @@ function ChipBetPiles.CreateBetStack(betObject)
     local betValue = betObject.value
     local betID = betObject.id
     local betWorldLocation = {x=0,y=0}
-    --DuelPrint('[==w Ran CreateBetStack(); betCategory: '..betCategory..' betChoice: '..betChoice..' betValue: '..betValue..' betID: '..betID)
+    --DualPrint('[==w Ran CreateBetStack(); betCategory: '..betCategory..' betChoice: '..betChoice..' betValue: '..betValue..' betID: '..betID)
     if betCategory == "Red/Black" then
         if betChoice == "Red" then
             betWorldLocation = ChipUtils.HexToBoardCoords({x=9, y=1.5})
@@ -304,7 +304,7 @@ function ChipBetPiles.RemoveBetStack()
     for i, v in ipairs(betsPilesToRemove) do
         if v == nil then
             --uhh why is it nil   --its not, below line is
-            if DuelPrint then DuelPrint('=w ERROR! v is nil, index: '..i..' v: '..v..' indexCount: '..indexCount..', error code: 0046') end
+            if DualPrint then DualPrint('=w ERROR! v is nil, index: '..i..' v: '..v..' indexCount: '..indexCount..', error code: 0046') end
         end
         local localPile = betsPiles[v]
         if localPile == nil then

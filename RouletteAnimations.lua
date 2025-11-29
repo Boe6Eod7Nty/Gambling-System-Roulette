@@ -203,7 +203,7 @@ function RouletteAnimations.AdvanceRouletteBall()
                 dependencies.UpdateSpinResults(tostring(ball_result))
             end
             dependencies.ProcessSpinResult(ball_result+1)
-            --DuelPrint('result: '..roulette_slots[ball_result+1].label..' '..roulette_slots[ball_result+1].color)
+            --DualPrint('result: '..roulette_slots[ball_result+1].label..' '..roulette_slots[ball_result+1].color)
         end
 
     end
@@ -221,7 +221,7 @@ function RouletteAnimations.AdvanceRouletteBall()
         -- Don't spam error if tableCenterPoint is just not set yet (table not initialized)
         -- Only log once per second to avoid spam
         if not RouletteAnimations._lastTableCenterError or (os.time() - RouletteAnimations._lastTableCenterError) >= 1 then
-            dependencies.DuelPrint('=E ERROR: tableCenterPoint not set in RouletteAnimations, CODE 5001')
+            dependencies.DualPrint('=E ERROR: tableCenterPoint not set in RouletteAnimations, CODE 5001')
             RouletteAnimations._lastTableCenterError = os.time()
         end
         return
@@ -235,7 +235,7 @@ function RouletteAnimations.AdvanceRouletteBall()
 
     local entity = Game.FindEntityByID(dependencies.FindEntIdByName('roulette_ball')) --grab entity from entRecords table
     if not entity then
-        dependencies.DuelPrint('=E ERROR: Could not find roulette_ball entity, CODE 5002')
+        dependencies.DualPrint('=E ERROR: Could not find roulette_ball entity, CODE 5002')
         return
     end
     

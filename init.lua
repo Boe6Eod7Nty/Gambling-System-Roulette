@@ -294,7 +294,7 @@ local callback40x = function()
         end
         
         if tablesChecked == 0 then
-            DuelPrint('[==e ERROR: No registered tables found! RelativeCoordinateCalulator.registeredTables is empty.')
+            DualPrint('[==e ERROR: No registered tables found! RelativeCoordinateCalulator.registeredTables is empty.')
         end
     end
     if areaInitialized then
@@ -347,7 +347,7 @@ end
 
 local function RegisterRouletteSpot(tableID, mappinPos)
     if not mappinPos then
-        DuelPrint('[==e ERROR: Failed to calculate mappin position for roulette table '..tostring(tableID))
+        DualPrint('[==e ERROR: Failed to calculate mappin position for roulette table '..tostring(tableID))
         return
     end
 
@@ -446,7 +446,7 @@ registerForEvent( "onInit", function() --runs on file load
         FindEntIdByName = FindEntIdByName,
         SetRotateEnt = SetRotateEnt,
         MapVar = MapVar,
-        DuelPrint = DuelPrint
+        DualPrint = DualPrint
     })
     
     ChipBetPiles.Initialize({
@@ -459,7 +459,7 @@ registerForEvent( "onInit", function() --runs on file load
         DeRegisterEntity = DeRegisterEntity,
         FindEntIdByName = FindEntIdByName,
         SetRotateEnt = SetRotateEnt,
-        DuelPrint = DuelPrint,
+        DualPrint = DualPrint,
         RouletteMainMenu = RouletteMainMenu,
         poker_chip = poker_chip
     })
@@ -474,7 +474,7 @@ registerForEvent( "onInit", function() --runs on file load
         DeRegisterEntity = DeRegisterEntity,
         FindEntIdByName = FindEntIdByName,
         SetRotateEnt = SetRotateEnt,
-        DuelPrint = DuelPrint,
+        DualPrint = DualPrint,
         poker_chip = poker_chip
     })
     
@@ -486,7 +486,7 @@ registerForEvent( "onInit", function() --runs on file load
         FindEntIdByName = FindEntIdByName,
         ProcessSpinResult = ProcessSpinResult,
         GetPlayer = GetPlayer,
-        DuelPrint = DuelPrint,
+        DualPrint = DualPrint,
         UpdateSpinResults = function(result)
             spin_results = spin_results .. result .. ','
         end
@@ -560,7 +560,7 @@ registerForEvent('onUpdate', function(dt) --runs every frame
                 RouletteMainMenu.MainMenuUI()
             end
         else
-            DuelPrint('=t Error: button pressed, but no showCustomChips flag set. code 4509')
+            DualPrint('=t Error: button pressed, but no showCustomChips flag set. code 4509')
         end
         buttonCustomNumberPressed = false
     end
@@ -583,40 +583,40 @@ end)
 --dev hotkeys
 --[[
 registerHotkey('DevHotkey1', 'Dev Hotkey 1', function()
-    DuelPrint('||=1  Dev hotkey 1 Pressed =')
+    DualPrint('||=1  Dev hotkey 1 Pressed =')
 
     Game.GetPlayer():PlaySoundEvent("ono_v_effort_short")
 end)
 registerHotkey('DevHotkey2', 'Dev Hotkey 2', function()
-    DuelPrint('||=2  Dev hotkey 2 Pressed =')
+    DualPrint('||=2  Dev hotkey 2 Pressed =')
 
 end)
 registerHotkey('DevHotkey3', 'Dev Hotkey 3', function()
-    DuelPrint('||=3  Dev hotkey 3 Pressed =')
+    DualPrint('||=3  Dev hotkey 3 Pressed =')
 
 end)
 registerHotkey('DevHotkey4', 'Dev Hotkey 4', function()
-    DuelPrint('||=4  Dev hotkey 4 Pressed =')
+    DualPrint('||=4  Dev hotkey 4 Pressed =')
 
 end)
 registerHotkey('DevHotkey5', 'Dev Hotkey 5', function()
-    DuelPrint('||=5  Dev hotkey 5 Pressed =')
+    DualPrint('||=5  Dev hotkey 5 Pressed =')
 
 end)
 registerHotkey('DevHotkey6', 'Dev Hotkey 6', function()
-    DuelPrint('||=6  Dev hotkey 6 Pressed =')
+    DualPrint('||=6  Dev hotkey 6 Pressed =')
 
 end)
 registerHotkey('DevHotkey7', 'Dev Hotkey 7', function()
-    DuelPrint('||=7  Dev hotkey 7 Pressed =')
+    DualPrint('||=7  Dev hotkey 7 Pressed =')
 
 end)
 registerHotkey('DevHotkey8', 'Dev Hotkey 8', function()
-    DuelPrint('||=8  Dev hotkey 8 Pressed =')
+    DualPrint('||=8  Dev hotkey 8 Pressed =')
 
 end)
 registerHotkey('DevHotkey9', 'Dev Hotkey 9', function()
-    DuelPrint('||=9  Dev hotkey 9 Pressed =')
+    DualPrint('||=9  Dev hotkey 9 Pressed =')
 
 end)
 ]]--
@@ -657,7 +657,7 @@ function InitTable(tableID)
     -- Get table center point (spinner center point) - MUST be set before spawning entities
     local spinnerCenterPos, spinnerOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
     if not spinnerCenterPos then
-        DuelPrint('[==e ERROR: Failed to calculate spinner center position for table '..tostring(tableID))
+        DualPrint('[==e ERROR: Failed to calculate spinner center position for table '..tostring(tableID))
         return
     end
     tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
@@ -669,12 +669,12 @@ function InitTable(tableID)
     -- Spawn roulette entities using TableManager
     local spinnerEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner', roulette_spinner, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
     if not spinnerEntID then
-        DuelPrint('[==e ERROR: InitTable: Failed to spawn roulette_spinner entity')
+        DualPrint('[==e ERROR: InitTable: Failed to spawn roulette_spinner entity')
     end
     
     local ballEntID = TableManager.spawnTableEntity(tableID, 'roulette_ball', roulette_ball, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
     if not ballEntID then
-        DuelPrint('[==e ERROR: InitTable: Failed to spawn roulette_ball entity')
+        DualPrint('[==e ERROR: InitTable: Failed to spawn roulette_ball entity')
     end
     
     -- Register entities in local entRecords system for compatibility with FindEntIdByName, SetRotateEnt, etc.
@@ -857,11 +857,11 @@ function RegisterEntity(devName, entSrc, appName, location, orientation, tags) -
 end
 
 function DeRegisterEntity(devName) -- delete and remove entity from local system
-    --DuelPrint('[==q Ran DeRegisterEntity(), devName: '..devName)
+    --DualPrint('[==q Ran DeRegisterEntity(), devName: '..devName)
 
     local entity = Game.FindEntityByID(FindEntIdByName(devName))
     if entity == nil then
-        --DuelPrint('=q entity is nil')
+        --DualPrint('=q entity is nil')
         -- Remove from entRecords even if entity is nil
         local foundMatch = 1
         while foundMatch > 0 do
@@ -880,7 +880,7 @@ function DeRegisterEntity(devName) -- delete and remove entity from local system
         return
     end
     local currentPos = entity:GetWorldPosition()
-    --DuelPrint('=q entity pos pre  x: '..currentPos.x..' y: '..currentPos.y..' z: '..currentPos.z)
+    --DualPrint('=q entity pos pre  x: '..currentPos.x..' y: '..currentPos.y..' z: '..currentPos.z)
     Despawn(FindEntIdByName(devName))
 
     local foundMatch = 1
@@ -889,7 +889,7 @@ function DeRegisterEntity(devName) -- delete and remove entity from local system
         for i,v in ipairs(entRecords) do --find matching devName in entRecords & add index to 'indicesToRemove' table
             if v.name == devName then
                 table.remove(entRecords, i)
-                --DuelPrint('=q Removed devName: '..devName..' from entRecords')
+                --DualPrint('=q Removed devName: '..devName..' from entRecords')
                 foundMatch = 2
                 break
             end
@@ -913,7 +913,7 @@ function FindEntIdByName(devName, entList) -- find devName in entRecords and ret
     --in case no matches, return chips0
     for i,v in ipairs(entRecords) do
         if v.name == 'chips0' then
-            -- DuelPrint('=G FindEntityByID() minor error, code 3098')
+            -- DualPrint('=G FindEntityByID() minor error, code 3098')
                 --suppressed due to user confusion.
                 --TODO: print v.name to look into cause
             return v.id
@@ -952,9 +952,6 @@ function DualPrint(string) --prints to both CET console and local .log file
     spdlog.error('[Gambling System] ' .. string)
 end
 
-function DuelPrint(string) --prints to both CET console and local .log file
-    DualPrint(string)
-end
 
 function AddValueCommas(amount) --converts integer into string with commas
     --function by cyswip
@@ -1003,7 +1000,7 @@ function ShowHoloResult(number, color)
         stringPhysicalWidth = stringPhysicalWidth + greenWidth
         colorWordWidth = greenWidth
     else
-        DuelPrint('=C FATAL ERROR: color ~= Green|Red|Black, CODE 0954')
+        DualPrint('=C FATAL ERROR: color ~= Green|Red|Black, CODE 0954')
     end
     local widthMiddle =  stringPhysicalWidth / 2
 
@@ -1075,11 +1072,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
     for i, v in ipairs(currentBets) do
         if v.cat == "Red/Black" then
             if resultColor == v.bet then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*2)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*2)
                 wonValue = wonValue + v.value*2
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Straight-Up" then
@@ -1093,11 +1090,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 betNum = tonumber(digit1..digit2)
             end
             if resultLabel == betNum then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*36)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*36)
                 wonValue = wonValue + v.value*36
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Odd/Even" then
@@ -1110,10 +1107,10 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 betOdd = false
             end
             if betOdd ~= resultOdd or resultLabel == 0 then
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             else
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*2)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*2)
                 wonValue = wonValue + v.value*2
                 table.insert(winnerIDs, v.id)
             end
@@ -1121,10 +1118,10 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
             local betHigh = ( resultLabel >= 19 )
             local resultHigh = ( v.bet == "High" )
             if betHigh ~= resultHigh or resultLabel == 0 then
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             else
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*2)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*2)
                 wonValue = wonValue + v.value*2
                 table.insert(winnerIDs, v.id)
             end
@@ -1142,11 +1139,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 winner = false
             end
             if winner then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*3)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*3)
                 wonValue = wonValue + v.value*3
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Dozen" then
@@ -1163,11 +1160,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 winner = false
             end
             if winner then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*3)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*3)
                 wonValue = wonValue + v.value*3
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Split" then
@@ -1181,11 +1178,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 secondNumber = tonumber(string.sub(v.bet, 4, 5))
             end
             if resultLabel == firstNumber or resultLabel == secondNumber then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*18)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*18)
                 wonValue = wonValue + v.value*18
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Street" then
@@ -1202,11 +1199,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 thirdNumber = tonumber(string.sub(v.bet, 7, 8))
             end
             if resultLabel == firstNumber or resultLabel == secondNumber or resultLabel == thirdNumber then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*12)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*12)
                 wonValue = wonValue + v.value*12
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Corner" then
@@ -1222,11 +1219,11 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
             local thirdNumber = firstNumber+1
             local fourthNumber = secondNumber-1
             if resultLabel == firstNumber or resultLabel == secondNumber or resultLabel == thirdNumber or resultLabel == fourthNumber then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*9)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*9)
                 wonValue = wonValue + v.value*9
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         elseif v.cat == "Line" then
@@ -1240,15 +1237,15 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 secondNumber = tonumber(string.sub(v.bet, 4, 5))
             end
             if resultLabel >= firstNumber and resultLabel <= secondNumber then
-                DuelPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*6)
+                DualPrint('Winner! Bet on '..v.cat..'; '..v.bet..'! Payout: '..v.value*6)
                 wonValue = wonValue + v.value*6
                 table.insert(winnerIDs, v.id)
             else
-                DuelPrint('Loser! Bet on '..v.cat..'; '..v.bet)
+                DualPrint('Loser! Bet on '..v.cat..'; '..v.bet)
                 table.insert(loserIDs, v.id)
             end
         else
-            DuelPrint('ERROR: Unknown bet category: '..v.cat..' CODE 2640')
+            DualPrint('ERROR: Unknown bet category: '..v.cat..' CODE 2640')
         end
     end
 
@@ -1273,10 +1270,10 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                 table.insert(holoEnts, holoDevName)
                 RegisterEntity(holoDevName, chip_stacks, 'default', {x=pos.x,y=pos.y,z=pos.z-0.02})
             else
-                DuelPrint('[==e ERROR: Could not find entity '..entDevName..' for winner bet '..v)
+                DualPrint('[==e ERROR: Could not find entity '..entDevName..' for winner bet '..v)
             end
         else
-            DuelPrint('[==e ERROR: betsPile or stacksInfo missing for winner bet '..v)
+            DualPrint('[==e ERROR: betsPile or stacksInfo missing for winner bet '..v)
         end
 
         local callback = function()
@@ -1402,7 +1399,7 @@ function SpawnWithCodeware(pathOrID, appName, locationTable, orientationTable, t
     entSpec.spawnInView = true
     entSpec.active = true
     if type(tags) == 'table' then entSpec.tags = tags end
-    --DuelPrint('[-- Spawning with Codeware; ent: '..string.sub(pathOrID,31,string.len(pathOrID))..', appearance: '..appName..', x: '..entSpec.position.x..', y: '..entSpec.position.y..', z: '..entSpec.position.z)
+    --DualPrint('[-- Spawning with Codeware; ent: '..string.sub(pathOrID,31,string.len(pathOrID))..', appearance: '..appName..', x: '..entSpec.position.x..', y: '..entSpec.position.y..', z: '..entSpec.position.z)
     return entitySystem:CreateEntity(entSpec)
 end
 
@@ -1415,6 +1412,6 @@ end
 --Script Initialized
 --==================
 
---DuelPrint('[log] init.lua loaded, Time: '..tostring(os.time()))
---DuelPrint('-=- Welcome to Roulette by Boe6! -=- Current Unix Time: '..os.time())
+--DualPrint('[log] init.lua loaded, Time: '..tostring(os.time()))
+--DualPrint('-=- Welcome to Roulette by Boe6! -=- Current Unix Time: '..os.time())
 return Roulette

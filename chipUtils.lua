@@ -21,7 +21,7 @@ local DeRegisterEntity = nil
 local FindEntIdByName = nil
 local SetRotateEnt = nil
 local MapVar = nil
-local DuelPrint = nil
+local DualPrint = nil
 
 -- Local data
 local maxStackSize = 10
@@ -57,7 +57,7 @@ function ChipUtils.Initialize(deps)
     FindEntIdByName = deps.FindEntIdByName
     SetRotateEnt = deps.SetRotateEnt
     MapVar = deps.MapVar
-    DuelPrint = deps.DuelPrint
+    DualPrint = deps.DualPrint
 end
 
 -- Update function for tableBoardOrigin (in case it gets reassigned)
@@ -70,8 +70,8 @@ end
 -- Coordinate conversion
 function ChipUtils.HexToBoardCoords(hexCoords)
     if not tableBoardOrigin then
-        if DuelPrint then
-            DuelPrint('[==e ERROR: tableBoardOrigin is nil in HexToBoardCoords!')
+        if DualPrint then
+            DualPrint('[==e ERROR: tableBoardOrigin is nil in HexToBoardCoords!')
         end
         return {x=0, y=0}
     end
@@ -79,8 +79,8 @@ function ChipUtils.HexToBoardCoords(hexCoords)
     -- Get table rotation dynamically from active table
     local tableRotation = GetActiveTableRotation()
     if not tableRotation then
-        if DuelPrint then
-            DuelPrint('[==e ERROR: Could not get active table rotation in HexToBoardCoords!')
+        if DualPrint then
+            DualPrint('[==e ERROR: Could not get active table rotation in HexToBoardCoords!')
         end
         return {x=0, y=0}
     end
@@ -159,7 +159,7 @@ function ChipUtils.FindNextStackLayoutLocation(localPile, cIndex) --output {x=i,
         return stepInfo[1]
     end
 
-    if DuelPrint then DuelPrint('=c error end function return {x=1, y=3, z=2}, code 0925') end
+    if DualPrint then DualPrint('=c error end function return {x=1, y=3, z=2}, code 0925') end
     return {x=1, y=3, z=2}
 end
 
@@ -590,7 +590,7 @@ function ChipUtils.WideHexSearch(localPile, hexCoords, cIndex) --from a coordina
         if roundedOutCoords.y ~= 0 then roundedOutCoords.y = math.floor((relativeOutCoords.y*divisorN)+0.5) end
         if roundedOutCoords.z ~= 0 then roundedOutCoords.z = math.floor((relativeOutCoords.z*divisorN)+0.5) end
         if roundedOutCoords.x == 0 and roundedOutCoords.y == 0 and roundedOutCoords.z == 0 then --full force! hopefully never triggers
-            if DuelPrint then DuelPrint('=e FORCED ERROR! Code: 6578') end
+            if DualPrint then DualPrint('=e FORCED ERROR! Code: 6578') end
             roundedOutCoords.x = 1
         end
     end
@@ -629,14 +629,14 @@ function ChipUtils.CountSevenHex(localPile, hexCoords) --check each stack spot n
 end
 
 function ChipUtils.CheckStackLayoutCoords(localPile, coords) --returns color index of stack if coords are occupied, false if empty
-    --DuelPrint('[==g Ran CheckStackLayoutCoords()')
+    --DualPrint('[==g Ran CheckStackLayoutCoords()')
     if not (coords.x >= localPile.limits.minX and
         coords.x <= localPile.limits.maxX and
         coords.y >= localPile.limits.minY and
         coords.y <= localPile.limits.maxY and
         coords.z >= localPile.limits.minZ and
         coords.z <= localPile.limits.maxZ) then
-            --DuelPrint('=g coords are not in bounds')
+            --DualPrint('=g coords are not in bounds')
             return 16
     end
     for i,v in ipairs(localPile.stacksInfo) do
@@ -739,14 +739,14 @@ function ChipUtils.ValueToPileQueueSimple(localPile, queue, value, betsPileQueue
                 end
             end
             if loopCount > 15 then
-                if DuelPrint then DuelPrint('=M ERROR noValuesOverMax loop stuck, code 5489') end
+                if DualPrint then DualPrint('=M ERROR noValuesOverMax loop stuck, code 5489') end
                 noValuesOverMax = true
             end
         end
     end
 
     if valueRemaining > 0 then --catch any extra value. Should be unnecessary, but just a safeguard
-        --DuelPrint('=M ERROR: valueRemaining > 0, CODE 3389')
+        --DualPrint('=M ERROR: valueRemaining > 0, CODE 3389')
                 --supressed until I look into it. idk, its spamming my console but the game works. #TODO
                         --prints on wheel press UI trigger, and when main menu UI returns after chip payout.
         queuedChips[1] = queuedChips[1] + valueRemaining
@@ -762,7 +762,7 @@ end
 
 function ChipUtils.ValueToQueueSubtraction(localPile, value, pileQueue, pileSubtractionQueue) -- find chips in pile that add up to value, set chips to subtractionQueue
     if localPile.value < value then --catch in case of value higher then total chips
-        if DuelPrint then DuelPrint('=p FATAL ERROR: localPile.value < value, CODE 4781') end
+        if DualPrint then DualPrint('=p FATAL ERROR: localPile.value < value, CODE 4781') end
         return
     end
 
@@ -829,22 +829,22 @@ function ChipUtils.ValueToQueueSubtraction(localPile, value, pileQueue, pileSubt
                     pileQueueChips[i-2] = pileQueueChips[i-2] + secondChangeChipsRounded
                     pileChips[i-2] = pileChips[i-2] + secondChangeChipsRounded
                     if secondChangeRemainder > 0 then
-                        if DuelPrint then DuelPrint('=p FATAL ERROR: secondChangeRemainder > 0, CODE 3876, secondChangeRemainder = '..secondChangeRemainder) end --remaining change after 2 colors lower? weird. try logging
+                        if DualPrint then DualPrint('=p FATAL ERROR: secondChangeRemainder > 0, CODE 3876, secondChangeRemainder = '..secondChangeRemainder) end --remaining change after 2 colors lower? weird. try logging
                         return
                     end
                 end
                 break
             else
-                --DuelPrint('=p skipped chip, i: '..i..' valueRemaining: '..valueRemaining..' chipValue: '..chipValue..' pileChips[i]: '..pileChips[i])
+                --DualPrint('=p skipped chip, i: '..i..' valueRemaining: '..valueRemaining..' chipValue: '..chipValue..' pileChips[i]: '..pileChips[i])
             end
         end
         if subtractionValueLoopCount > 20 then
-            if DuelPrint then DuelPrint('=p FATAL ERROR: subtractionValueLoopCount > 20, CODE 2642') end --major loop issue. log away.  I know I'll be here again...-5/20/24-1:58AM. Occur tally: 2
+            if DualPrint then DualPrint('=p FATAL ERROR: subtractionValueLoopCount > 20, CODE 2642') end --major loop issue. log away.  I know I'll be here again...-5/20/24-1:58AM. Occur tally: 2
             return
         end
     end --end while loop
 
-    --DuelPrint('=p pileQueueChips: {'..pileQueueChips[1]..','..pileQueueChips[2]..','..pileQueueChips[3]..','..pileQueueChips[4]..','..pileQueueChips[5]..','..pileQueueChips[6]..','..pileQueueChips[7]..','..pileQueueChips[8]..','
+    --DualPrint('=p pileQueueChips: {'..pileQueueChips[1]..','..pileQueueChips[2]..','..pileQueueChips[3]..','..pileQueueChips[4]..','..pileQueueChips[5]..','..pileQueueChips[6]..','..pileQueueChips[7]..','..pileQueueChips[8]..','
     --                                ..pileQueueChips[9]..','..pileQueueChips[10]..','..pileQueueChips[11]..','..pileQueueChips[12]..','..pileQueueChips[13]..','..pileQueueChips[14]..','..pileQueueChips[15]..','..pileQueueChips[16]..'}')
     for i, j in ipairs(pileQueueChips) do --for every non-zero, add to pileQueue or pileSubtractionQueue
         if j > 0 then
