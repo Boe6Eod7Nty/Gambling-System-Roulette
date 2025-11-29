@@ -150,8 +150,8 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
                 previousBetAvailable = false
                 inRouletteTable = false
                 
-                -- Note: The world.addInteraction callback will automatically show the join UI again
-                -- when the player enters the interaction range, since inRouletteTable is now false
+                -- SpotManager callbacks will automatically show the join UI again
+                -- when the player re-enters the interaction range, since inRouletteTable is false
             end
         end
     }

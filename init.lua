@@ -1,6 +1,6 @@
 Roulette = {
     version = '1.0.15',
-    initVersion = '1.1.0',
+    initVersion = '1.1.1',
     ready = false
 }
 --===================
@@ -25,7 +25,6 @@ Roulette = {
 --psiberx for Cron.lua, & keanuwheeze for sharing an example using async/waiting
 --keanuwheeze for interactionUI.lua & working example
 --psiberx for codeware's awesome features and his help/support of it in discord
---keanuwheeze for worldInteraction.lua, which basically replaces native workspots with something scriptable.
 --keanuwheeze for their init.lua from the sitAnywhere mod. Marked in comments where used.
 --psiberx for GameUI.lua, a Reactive Game UI State Observer
 --keanuwheeze for helping with variable scope issues [ This one took an age, ty again keanuwheeze <3 ]
@@ -46,7 +45,6 @@ Roulette = {
 --=======
 local Cron = require('External/Cron.lua')
 local interactionUI = require("External/interactionUI.lua")
-local world = require("External/worldInteraction.lua")
 local GameUI = require("External/GameUI.lua")
 local utils = require("External/workspotUtils.lua")
 local GameLocale = require("External/GameLocale.lua")
@@ -60,6 +58,7 @@ local RouletteAnimations = require("RouletteAnimations.lua")
 local RelativeCoordinateCalulator = require('RelativeCoordinateCalulator.lua')
 local RouletteCoordinates = require('RouletteCoordinates.lua')
 local TableManager = require('TableManager.lua')
+local SpotManager = require("SpotManager.lua")
 
 
 --Modules
@@ -362,6 +361,88 @@ end
 --Register Events
 --===============
 
+local function RegisterRouletteSpot(tableID, mappinPos)
+    if not mappinPos then
+        DuelPrint('[==e ERROR: Failed to calculate mappin position for roulette table '..tostring(tableID))
+        return
+    end
+
+    local localeJoin = GameLocale.Text("Join Table")
+    local localeHub = GameLocale.Text("Roulette")
+
+    local spotObj = {
+        spot_id = tableID,
+        spot_worldPosition = mappinPos,
+        spot_orientation = EulerAngles.new(0, 0, 0),
+        spot_useWorkSpot = false,
+        spot_showingInteractUI = false,
+        disableDefaultUI = false, -- Explicitly set to false to ensure default UI shows
+        callback_UIwithoutWorkspotTriggered = function()
+            -- Handle joining the roulette table when player interacts
+            TableManager.SetActiveTable(tableID)
+            interactionUI.hideHub()
+            StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoMovement") -- Disable player movement
+            StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoCombat")
+            
+            -- Get player playing position using RelativeCoordinateCalulator
+            local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_playing_position')
+            -- Calculate player orientation (340 degrees + table rotation)
+            local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+            local tableEuler = tableData.orientation:ToEulerAngles()
+            local playerYaw = 340 + tableEuler.yaw
+            Game.GetTeleportationFacility():Teleport(GetPlayer(), playerPos, EulerAngles.new(0, 0, playerYaw))
+            
+            -- Start holographic display when player joins table
+            if holographicDisplayPosition and not holographicDisplayActive then
+                local holoPos = Vector4.new(holographicDisplayPosition.x, holographicDisplayPosition.y, holographicDisplayPosition.z, 1)
+                -- Calculate facing direction quaternion
+                -- Original formula: atan2(holo.y - player.y, holo.x - player.x) * 180/pi - 90
+                -- Module adds 180 degrees internally, so we subtract 180 to compensate
+                local holoDisplayAngle = ((math.atan2(holographicDisplayPosition.y - playerPlayingPosition.y, holographicDisplayPosition.x - playerPlayingPosition.x)) * 180 / math.pi) - 90 - 180
+                local facingQuaternion = EulerAngles.new(0, 0, holoDisplayAngle):ToQuat()
+                HolographicValueDisplay.startDisplay(holoPos, facingQuaternion)
+                holographicDisplayActive = true
+            end
+            
+            RouletteMainMenu.MainMenuUI()
+            inRouletteTable = true
+        end,
+        animation_defaultEnterTime = 0,
+        callback_OnSpotEnterAfterAnimationDelayTime = 0,
+        callback_OnSpotEnterAfterAnimation = function() end,
+        callback_OnSpotExitAfterAnimationDelayTime = 0,
+        callback_OnSpotExit = function() end,
+        callback_OnSpotExitAfterAnimation = function() end,
+        exit_worldPositionOffset = {x = 0, y = 0, z = 0},
+        exit_orientationCorrection = {r = 0, p = 0, y = 0},
+        mappin_worldPosition = mappinPos,
+        mappin_interactionRange = 1.4,
+        mappin_interactionAngle = 80,
+        mappin_rangeMax = 6.5,
+        mappin_rangeMin = 0.5,
+        mappin_worldIcon = "ChoiceIcons.SitIcon",
+        mappin_choiceIcon = "ChoiceCaptionParts.SitIcon",
+        mappin_choiceText = localeJoin,
+        mappin_hubText = localeHub,
+        mappin_choiceFont = gameinteractionsChoiceType.QuestImportant,
+        mappin_variant = gamedataMappinVariant.SitVariant,
+        mappin_visibleThroughWalls = true,
+        mappin_showWorldMappinIconSetting = true,
+        mappin_visible = false,
+        mappin_gameMappinID = nil,
+        mappin_toggleHUD = true,
+        camera_showElectroshockEffect = false
+    }
+
+    -- Hide mappin when player is in a roulette table
+    -- Access the global inRouletteTable variable directly (it's declared as global, not local)
+    spotObj.mappin_extraVisibilityCheck = function()
+        return not inRouletteTable
+    end
+
+    SpotManager.AddSpot(spotObj)
+end
+
 registerForEvent( "onInit", function() --runs on file load
 	GameLocale.Initialize()
     interactionUI.init()
@@ -436,14 +517,13 @@ registerForEvent( "onInit", function() --runs on file load
     inGame = false
     GameUI.OnSessionStart(function()
         inGame = true
-        world.onSessionStart()
     end)
     GameUI.OnSessionEnd(function()
         inGame = false
     end)
     inGame = not GameUI.IsDetached() -- Required to check if ingame after reloading all mods
 
-    world.init()
+    SpotManager.init()
 
     GameSession.OnEnd(function() --GameSession init stuff, credit: psiberx code
         -- Triggered once the current game session has ended (when "Load Game" or "Exit to Main Menu" selected)
@@ -453,22 +533,11 @@ registerForEvent( "onInit", function() --runs on file load
     -- Initialize roulette coordinates (registers tables and offsets)
     RouletteCoordinates.init()
 
-    -- Register world interactions for all registered tables
+    -- Register SpotManager interactions for all registered tables
     for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
         -- Use mappin_position for the interaction position (should be at table level)
         local mappinPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'mappin_position')
-        -- Capture tableID in closure for use in callback
-        local capturedTableID = tableID
-        world.addInteraction(tableID, mappinPos, 1.0, 80, "ChoiceIcons.SitIcon", 6.5, 0.5, nil, function(state)
-            --  (id, position, interactionRange, angle, icon, iconRange, iconRangeMin, iconColor, callback)
-            -- Set active table when interaction is shown
-            if state then -- Show
-                TableManager.SetActiveTable(capturedTableID)
-                UpdateJoinUI(true, capturedTableID)
-            else -- Hide
-                UpdateJoinUI(false, capturedTableID)
-            end
-        end)
+        RegisterRouletteSpot(tableID, mappinPos)
     end
 
     Roulette.ready = true
@@ -478,7 +547,7 @@ registerForEvent('onUpdate', function(dt) --runs every frame
     if  not inMenu and inGame then
         Cron.Update(dt) -- This is required for Cron to function
         interactionUI.update()
-        world.update()
+        SpotManager.update(dt)
         
         -- Update holographic display every frame (like blackjack implementation)
         if holographicDisplayActive then
@@ -624,12 +693,6 @@ function InitTable(tableID)
     end
     tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
     
-    -- Log table and spinner positions at startup
-    local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
-    if tableData then
-        DuelPrint('[INFO] Table '..tostring(tableID)..' position: ('..tableData.position.x..', '..tableData.position.y..', '..tableData.position.z..')')
-    end
-    DuelPrint('[INFO] Spinner position for '..tostring(tableID)..': ('..spinnerCenterPos.x..', '..spinnerCenterPos.y..', '..spinnerCenterPos.z..')')
     
     -- Update RouletteAnimations with table center point immediately
     RouletteAnimations.UpdateBallCenter(tableCenterPoint)
@@ -1356,47 +1419,6 @@ function RepeatBets() --for each in previous bets, place bet into current bets
     currentlyRepeatingBets = true
     for i, v in pairs(previousBet) do
         PlaceBet(v.value,v.cat,v.bet,i)
-    end
-end
-
-function UpdateJoinUI(showUI, tableID) --show or hide join UI depending on.. something, idk it changed since I wrote this comment
-    if not inRouletteTable  then
-        if showUI == true then
-            local choice_JoinTable = interactionUI.createChoice(GameLocale.Text("Join Table"), TweakDBInterface.GetChoiceCaptionIconPartRecord("ChoiceCaptionParts.SitIcon"), gameinteractionsChoiceType.QuestImportant)
-            local hub_JoinTable = interactionUI.createHub(GameLocale.Text("Roulette"), {choice_JoinTable})
-            interactionUI.setupHub(hub_JoinTable)
-            interactionUI.showHub()
-            interactionUI.callbacks[1] = function()
-                interactionUI.hideHub()
-                StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoMovement") -- Disable player movement
-                StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoCombat")
-                
-                -- Get player playing position using RelativeCoordinateCalulator
-                local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_playing_position')
-                -- Calculate player orientation (340 degrees + table rotation)
-                local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
-                local tableEuler = tableData.orientation:ToEulerAngles()
-                local playerYaw = 340 + tableEuler.yaw
-                Game.GetTeleportationFacility():Teleport(GetPlayer(), playerPos, EulerAngles.new(0, 0, playerYaw))
-                
-                -- Start holographic display when player joins table
-                if holographicDisplayPosition and not holographicDisplayActive then
-                    local holoPos = Vector4.new(holographicDisplayPosition.x, holographicDisplayPosition.y, holographicDisplayPosition.z, 1)
-                    -- Calculate facing direction quaternion
-                    -- Original formula: atan2(holo.y - player.y, holo.x - player.x) * 180/pi - 90
-                    -- Module adds 180 degrees internally, so we subtract 180 to compensate
-                    local holoDisplayAngle = ((math.atan2(holographicDisplayPosition.y - playerPlayingPosition.y, holographicDisplayPosition.x - playerPlayingPosition.x)) * 180 / math.pi) - 90 - 180
-                    local facingQuaternion = EulerAngles.new(0, 0, holoDisplayAngle):ToQuat()
-                    HolographicValueDisplay.startDisplay(holoPos, facingQuaternion)
-                    holographicDisplayActive = true
-                end
-                
-                RouletteMainMenu.MainMenuUI()
-                inRouletteTable = true
-            end
-        else
-            interactionUI.hideHub()
-        end
     end
 end
 
