@@ -90,7 +90,7 @@ spin_results = '' --track spin results history
 tableChips = 0 --track chips on table
 
 -- multi-table support variables
-tableCenterPoint = {x=-1033.34668, y=1340.00183, z=6.21331358} --default value (hoohbarold)
+-- tableCenterPoint moved to TableManager.tableCenterPoints[tableID]
 local playerPlayingPosition = {x=-1034.435, y=1340.8057, z=5.278}
 local tableBoardOrigin = {x=-1033.7970, y=1342.182833333, z=6.310} --default value (hoohbarold)
 -- Tables are now managed by RouletteCoordinates and TableManager
@@ -480,7 +480,7 @@ registerForEvent( "onInit", function() --runs on file load
     
     -- Initialize RouletteAnimations module
     -- Note: spin_results is updated via a callback function
-    -- tableCenterPoint will be updated via UpdateBallCenter() when InitTable() is called
+    -- tableCenterPoint is now managed by TableManager and will be set when InitTable() is called
     RouletteAnimations.Initialize({
         SetRotateEnt = SetRotateEnt,
         FindEntIdByName = FindEntIdByName,
@@ -660,7 +660,8 @@ function InitTable(tableID)
         DualPrint('[==e ERROR: Failed to calculate spinner center position for table '..tostring(tableID))
         return
     end
-    tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
+    local tableCenterPoint = {x=spinnerCenterPos.x, y=spinnerCenterPos.y, z=spinnerCenterPos.z}
+    TableManager.SetTableCenterPoint(tableID, tableCenterPoint)
     
     
     -- Update RouletteAnimations with table center point immediately
@@ -1006,6 +1007,12 @@ function ShowHoloResult(number, color)
     local secondDigitRelativeY = ( secondDigitLinePos - widthMiddle ) * math.sin(holoDisplayAngleRad)
     local colorWordRelativeX = ( colorWordLinePos - widthMiddle ) * math.cos(holoDisplayAngleRad)
     local colorWordRelativeY = ( colorWordLinePos - widthMiddle ) * math.sin(holoDisplayAngleRad)
+
+    local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
+    if not tableCenterPoint then
+        DualPrint('[==e ERROR: ShowHoloResult: tableCenterPoint not available for active table')
+        return
+    end
 
     local firstDigitPos = {
         x=tableCenterPoint.x + firstDigitRelativeX,
@@ -1372,6 +1379,11 @@ function SpawnWithCodeware(pathOrID, appName, locationTable, orientationTable, t
     if locationTable then
         newLocation = {x=locationTable.x, y=locationTable.y, z=locationTable.z}
     else
+        local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
+        if not tableCenterPoint then
+            DualPrint('[==e ERROR: SpawnWithCodeware: tableCenterPoint not available for active table')
+            return
+        end
         newLocation = {x=tableCenterPoint.x, y=tableCenterPoint.y, z=tableCenterPoint.z}
     end
     entSpec.position = Vector4.new(newLocation.x, newLocation.y, newLocation.z, 1)

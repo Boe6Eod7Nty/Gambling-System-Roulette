@@ -40,8 +40,7 @@ local ball_height = 0
 local bounce_height = 60
 local max_ball_bounces = 4 --how many bounces before the ball is force stopped
 
--- Store tableCenterPoint reference for ball height calculations
-local tableCenterPoint = nil
+-- tableCenterPoint is now managed by TableManager
 
 -- Helper function: MapVar
 local function MapVar(var, in_min, in_max, out_min, out_max) --maps a value from one range to another
@@ -217,6 +216,7 @@ function RouletteAnimations.AdvanceRouletteBall()
     end
 
     -- update ball height to stay on "ground" based on ball_distance
+    local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
     if not tableCenterPoint then
         -- Don't spam error if tableCenterPoint is just not set yet (table not initialized)
         -- Only log once per second to avoid spam
@@ -272,7 +272,11 @@ end
 
 -- Public function: UpdateBallCenter
 function RouletteAnimations.UpdateBallCenter(centerPoint)
-    tableCenterPoint = centerPoint
+    -- Store in TableManager for the active table
+    local activeTableID = TableManager.GetActiveTable()
+    if activeTableID then
+        TableManager.SetTableCenterPoint(activeTableID, centerPoint)
+    end
     ball_center = {x=centerPoint.x, y=centerPoint.y, z=centerPoint.z+0.08668642}
 end
 
@@ -305,8 +309,8 @@ function RouletteAnimations.Initialize(deps)
     dependencies = deps
     initialized = true
     
-    -- tableCenterPoint will be set via UpdateBallCenter() when InitTable() is called
-    -- This allows it to be updated dynamically when tables change
+    -- tableCenterPoint is now managed by TableManager and retrieved via GetActiveTableCenterPoint()
+    -- It will be set via UpdateBallCenter() when InitTable() is called
 end
 
 -- Expose global flags as getters (used by init.lua)

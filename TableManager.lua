@@ -5,7 +5,8 @@ TableManager = {
     dealerSpawned = {}, -- Track spawn state per table: dealerSpawned[tableID] = true/false
     tableEntities = {}, -- Track generic entities per table: tableEntities[tableID] = {entityName = entID, ...}
     tableLoaded = {}, -- Track loaded state per table: tableLoaded[tableID] = true/false
-    optionalTables = {} -- Track optional tables with dependency checks: optionalTables[tableID] = {tableData, dependencyCheck}
+    optionalTables = {}, -- Track optional tables with dependency checks: optionalTables[tableID] = {tableData, dependencyCheck}
+    tableCenterPoints = {} -- Track table center points per table: tableCenterPoints[tableID] = {x, y, z}
 }
 --===================
 --CODE BY Boe6
@@ -45,6 +46,40 @@ end
 ---@return string|nil active table ID or nil if no table is active
 function TableManager.GetActiveTable()
     return TableManager.activeTableID
+end
+
+--- Sets the table center point for a specific table
+---@param tableID string table ID
+---@param centerPoint table center point: {x, y, z}
+function TableManager.SetTableCenterPoint(tableID, centerPoint)
+    if not tableID or not centerPoint then
+        return
+    end
+    TableManager.tableCenterPoints[tableID] = {
+        x = centerPoint.x,
+        y = centerPoint.y,
+        z = centerPoint.z
+    }
+end
+
+--- Gets the table center point for a specific table
+---@param tableID string table ID
+---@return table|nil center point: {x, y, z} or nil if not set
+function TableManager.GetTableCenterPoint(tableID)
+    if not tableID then
+        return nil
+    end
+    return TableManager.tableCenterPoints[tableID]
+end
+
+--- Gets the table center point for the currently active table
+---@return table|nil center point: {x, y, z} or nil if no active table or center point not set
+function TableManager.GetActiveTableCenterPoint()
+    local activeTableID = TableManager.GetActiveTable()
+    if not activeTableID then
+        return nil
+    end
+    return TableManager.GetTableCenterPoint(activeTableID)
 end
 
 --- Spawns NPC dealer behind the blackjack table.
