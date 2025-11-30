@@ -258,6 +258,12 @@ local function interactionUIUpdate(spotTable)
         return
     end
 
+    -- Skip all UI looking direction updates if player is already playing at the table
+    -- Looking direction checks should only apply to the "Join Table" prompt
+    if inRouletteTable then
+        return
+    end
+
     local shouldShowUI = true --start shouldShowUI logic
     local vector4difference = Vector4.new(position.x - mapping_pos.x, position.y - mapping_pos.y, position.z - mapping_pos.z, 0)
     local forwardVector = player:GetWorldForward()
