@@ -12,11 +12,24 @@ RouletteMainMenu = {
 local interactionUI = require("External/interactionUI.lua")
 local GameLocale = require("External/GameLocale.lua")
 
+-- Utility function: converts integer into string with commas
+-- function by cyswip
+function AddValueCommas(amount)
+	local formatted = tostring(amount)
+	while true do
+		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)","%1,%2")
+		if (k==0) then
+			break
+		end
+	end
+	return formatted
+end
+
 -- Note: This module depends on variables and functions from init.lua:
 -- currentBets, previousBet, previousBetAvailable, previousBetsCost
 -- betsPlacesTaken, queueUIBet, betCategories, betCategoryIndexes
 -- chip_values, betSizingSets, PlaceBet(), RepeatBets()
--- AddValueCommas(), holographicDisplayActive
+-- holographicDisplayActive
 -- HolographicValueDisplay
 -- TableManager, RelativeCoordinateCalulator, GetActiveTableRotation()
 -- showCustomBuyChips, showCustomBetChips

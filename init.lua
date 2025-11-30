@@ -953,19 +953,6 @@ function DualPrint(string) --prints to both CET console and local .log file
     spdlog.error('[Gambling System] ' .. string)
 end
 
-
-function AddValueCommas(amount) --converts integer into string with commas
-    --function by cyswip
-	local formatted = amount
-	while true do
-		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)","%1,%2")
-		if (k==0) then
-			break
-		end
-	end
-	return formatted
-end
-
 function ForceClearAllEnts()
     for i,v in ipairs(historicalEntRecords) do
         -- i = { name = devName, id = id }
