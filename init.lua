@@ -86,6 +86,8 @@ queueUIBet = {cat="Red/Black",bet="Red"} --current bet option choices during bet
 previousBetAvailable = false
 previousBetsCost = 0
 local currentlyRepeatingBets = false
+spin_results = '' --track spin results history
+tableChips = 0 --track chips on table
 
 -- multi-table support variables
 tableCenterPoint = {x=-1033.34668, y=1340.00183, z=6.21331358} --default value (hoohbarold)
