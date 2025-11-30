@@ -241,8 +241,9 @@ holographicDisplayActive = false
 local holographicDisplayPosition = nil
 
 --winning result holo
-local holoDisplayAngle = ( ( math.atan2(tableCenterPoint.y - playerPlayingPosition.y, tableCenterPoint.x - tableCenterPoint.x) ) * 180 / math.pi ) - 45
-local holoDisplayAngleRad = holoDisplayAngle * math.pi / 180
+-- Will be recalculated in InitTable when holographicDisplayPosition is available
+local holoDisplayAngle = 0
+local holoDisplayAngleRad = 0
 local showingHoloResult = false
 local doubleDigitHoloResult = false
 
@@ -734,7 +735,8 @@ function InitTable(tableID)
     local holoPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'holographic_display_position')
     holographicDisplayPosition = {x=holoPos.x, y=holoPos.y, z=holoPos.z}
 
-    holoDisplayAngle = ( ( math.atan2(tableCenterPoint.y - playerPlayingPosition.y, tableCenterPoint.x - tableCenterPoint.x) ) * 180 / math.pi ) + 225
+    -- Calculate angle from holographic display position to player position (ignoring Z coordinate)
+    holoDisplayAngle = ( ( math.atan2(holographicDisplayPosition.y - playerPlayingPosition.y, holographicDisplayPosition.x - playerPlayingPosition.x) ) * 180 / math.pi ) - 45
     holoDisplayAngleRad = holoDisplayAngle * math.pi / 180
 
     -- Get table board origin
