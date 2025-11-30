@@ -1342,13 +1342,6 @@ function MapVar(var, in_min, in_max, out_min, out_max) --maps a value from one r
     return ( (var - in_min) / (in_max - in_min) ) * (out_max - out_min) + out_min
 end
 
-function RotatePoint(center, point, angle) --rotates {x,y} point around {x,y} center by angle in degrees counterclockwise. returns {x=x,y=y}
-    local rad = angle * math.pi / 180
-    local x = center.x + math.cos(rad) * (point.x - center.x) - math.sin(rad) * (point.y - center.y)
-    local y = center.y + math.sin(rad) * (point.x - center.x) + math.cos(rad) * (point.y - center.y)
-    return {x=x,y=y}
-end
-
 function RepeatBets() --for each in previous bets, place bet into current bets
     previousBetAvailable = false
     currentlyRepeatingBets = true
