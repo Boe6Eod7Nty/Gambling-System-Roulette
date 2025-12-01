@@ -91,8 +91,10 @@ tableChips = 0 --track chips on table
 
 -- multi-table support variables
 -- tableCenterPoint moved to TableManager.tableCenterPoints[tableID]
-local playerPlayingPosition = {x=-1034.435, y=1340.8057, z=5.278}
-local tableBoardOrigin = {x=-1033.7970, y=1342.182833333, z=6.310} --default value (hoohbarold)
+-- playerPlayingPosition and tableBoardOrigin are now calculated from the coordinate system
+-- They will be set when InitTable() is called for a specific table
+local playerPlayingPosition = nil
+local tableBoardOrigin = nil
 -- Tables are now managed by RouletteCoordinates and TableManager
 
 -- ent files used to create entities
@@ -377,14 +379,18 @@ local function RegisterRouletteSpot(tableID, mappinPos)
             Game.GetTeleportationFacility():Teleport(GetPlayer(), playerPos, EulerAngles.new(0, 0, playerYaw))
             
             -- Start holographic display when player joins table
-            if holographicDisplayPosition and not holographicDisplayActive then
-                local holoPos = Vector4.new(holographicDisplayPosition.x, holographicDisplayPosition.y, holographicDisplayPosition.z, 1)
+            -- Calculate positions from coordinate system
+            local holoPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'holographic_display_position')
+            local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_playing_position')
+            
+            if holoPos and playerPos and not holographicDisplayActive then
+                local holoPosVec = Vector4.new(holoPos.x, holoPos.y, holoPos.z, 1)
                 -- Calculate facing direction quaternion
                 -- Original formula: atan2(holo.y - player.y, holo.x - player.x) * 180/pi - 90
                 -- Module adds 180 degrees internally, so we subtract 180 to compensate
-                local holoDisplayAngle = ((math.atan2(holographicDisplayPosition.y - playerPlayingPosition.y, holographicDisplayPosition.x - playerPlayingPosition.x)) * 180 / math.pi) - 90 - 180
+                local holoDisplayAngle = ((math.atan2(holoPos.y - playerPos.y, holoPos.x - playerPos.x)) * 180 / math.pi) - 90 - 180
                 local facingQuaternion = EulerAngles.new(0, 0, holoDisplayAngle):ToQuat()
-                HolographicValueDisplay.startDisplay(holoPos, facingQuaternion)
+                HolographicValueDisplay.startDisplay(holoPosVec, facingQuaternion)
                 holographicDisplayActive = true
             end
             
@@ -432,6 +438,12 @@ registerForEvent( "onInit", function() --runs on file load
     interactionUI.init()
     RegisterEntity('chips0', chip_broken, 'default') --insert index 1 dummy into entRecords to catch nil errors
     Cron.Every(0.025, callback40x)
+    
+    -- Initialize roulette coordinates FIRST (registers tables and offsets)
+    RouletteCoordinates.init()
+    
+    -- tableBoardOrigin will be set when InitTable() is called for the actual table the player is near
+    -- This ensures it's always correct for the active table, not hardcoded to a default
     
     -- Initialize chip modules
     ChipUtils.Initialize({
@@ -513,9 +525,6 @@ registerForEvent( "onInit", function() --runs on file load
         -- Triggered once the current game session has ended (when "Load Game" or "Exit to Main Menu" selected)
         DespawnTable()
     end)
-
-    -- Initialize roulette coordinates (registers tables and offsets)
-    RouletteCoordinates.init()
 
     -- Register SpotManager interactions for all registered tables
     for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
@@ -744,13 +753,18 @@ function InitTable(tableID)
 
     -- Get table board origin
     local boardOriginPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'table_board_origin')
-    -- Update tableBoardOrigin fields directly so ChipUtils reference stays valid
-    tableBoardOrigin.x = boardOriginPos.x
-    tableBoardOrigin.y = boardOriginPos.y
-    tableBoardOrigin.z = boardOriginPos.z
+    -- Create or update tableBoardOrigin (create if nil, update if exists)
+    if not tableBoardOrigin then
+        tableBoardOrigin = {x=boardOriginPos.x, y=boardOriginPos.y, z=boardOriginPos.z}
+    else
+        tableBoardOrigin.x = boardOriginPos.x
+        tableBoardOrigin.y = boardOriginPos.y
+        tableBoardOrigin.z = boardOriginPos.z
+    end
     
-    -- Also update ChipUtils with the new values
+    -- Also update ChipUtils and ChipBetPiles with the new values
     ChipUtils.UpdateTableBoardOrigin(tableBoardOrigin)
+    ChipBetPiles.UpdateTableBoardOrigin(tableBoardOrigin)
 end
 
 function DespawnTable() --despawns ents and resets script variables

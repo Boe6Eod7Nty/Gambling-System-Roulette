@@ -44,6 +44,13 @@ function ChipBetPiles.Initialize(deps)
     poker_chip = deps.poker_chip
 end
 
+-- Update function for tableBoardOrigin (in case it gets reassigned)
+function ChipBetPiles.UpdateTableBoardOrigin(newTableBoardOrigin)
+    if newTableBoardOrigin then
+        tableBoardOrigin = newTableBoardOrigin
+    end
+end
+
 -- Getter functions for data
 function ChipBetPiles.GetBetsPiles()
     return betsPiles
