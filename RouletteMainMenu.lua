@@ -1,5 +1,7 @@
 RouletteMainMenu = {
-    version = '1.0.0'
+    version = '1.0.0',
+    showCustomBuyChips = false,
+    showCustomBetChips = false
 }
 --===================
 --CODE BY Boe6
@@ -12,6 +14,11 @@ RouletteMainMenu = {
 local interactionUI = require("External/interactionUI.lua")
 local GameLocale = require("External/GameLocale.lua")
 
+-- Custom value input variables
+local inputSelected = nil
+local inputText = ""
+local buttonCustomNumberPressed = false
+
 -- Note: This module depends on variables and functions from init.lua:
 -- currentBets, previousBet, previousBetAvailable, previousBetsCost
 -- betsPlacesTaken, queueUIBet, betCategories, betCategoryIndexes
@@ -19,7 +26,6 @@ local GameLocale = require("External/GameLocale.lua")
 -- holographicDisplayActive
 -- HolographicValueDisplay
 -- TableManager, RelativeCoordinateCalulator, GetActiveTableRotation()
--- showCustomBuyChips, showCustomBetChips
 -- Animation flags: Use RouletteAnimations.roulette_spinning and RouletteAnimations.ball_spinning
 
 ---interactionUI wrapper function
@@ -1104,7 +1110,7 @@ function RouletteMainMenu.BetValueUI()
         end,
         function()
             --print("Choice 6 used")
-            showCustomBetChips = true
+            RouletteMainMenu.showCustomBetChips = true
         end,
         function()
             --print("Choice 7 used")
@@ -1207,7 +1213,7 @@ function RouletteMainMenu.BuyChipsUI()
         end,
         function()
             --print("Choice 7 used")
-            showCustomBuyChips = true
+            RouletteMainMenu.showCustomBuyChips = true
         end,
         function()
             --print("Choice 8 used")
@@ -1216,6 +1222,63 @@ function RouletteMainMenu.BuyChipsUI()
         end
     }
     CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
+end
+
+---Update handler for custom buy/bet chips input
+---Should be called from init.lua's onUpdate event
+function RouletteMainMenu.Update()
+    if buttonCustomNumberPressed then
+        local inputValue = tonumber(inputText)
+        if RouletteMainMenu.showCustomBuyChips then
+            RouletteMainMenu.showCustomBuyChips = false
+            local playerMoney = Game.GetTransactionSystem():GetItemQuantity(GetPlayer(), MarketSystem.Money())
+            if playerMoney >= inputValue and inputValue >= 0 and inputValue <= 10000000 then
+                interactionUI.hideHub()
+                ChipPlayerPile.ChangePlayerChipValue(inputValue)
+                Game.AddToInventory("Items.money", -(inputValue))
+                Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
+                RouletteMainMenu.MainMenuUI()
+            end
+        elseif RouletteMainMenu.showCustomBetChips then
+            RouletteMainMenu.showCustomBetChips = false
+            local playerPile = ChipPlayerPile.GetPlayerPile()
+            if playerPile.value >= inputValue and inputValue >= 0 and inputValue <= 10000000 then
+                interactionUI.hideHub()
+                PlaceBet(inputValue)
+                RouletteMainMenu.MainMenuUI()
+            end
+        else
+            DualPrint('=t Error: button pressed, but no showCustomChips flag set. code 4509')
+        end
+        buttonCustomNumberPressed = false
+    end
+end
+
+---Draw handler for custom buy/bet chips ImGui window
+---Should be called from init.lua's onDraw event
+function RouletteMainMenu.Draw()
+    if RouletteMainMenu.showCustomBuyChips or RouletteMainMenu.showCustomBetChips then
+        ImGui.SetNextWindowPos(100, 500, ImGuiCond.FirstUseEver) -- set window position x, y
+        ImGui.SetNextWindowSize(300, 600, ImGuiCond.Appearing) -- set window size w, h
+        if ImGui.Begin('Input Value', ImGuiWindowFlags.AlwaysAutoResize) then
+            ImGui.Text('Press Cyber Engine Tweaks Overlay Button to Interact')
+            ImGui.Text('Only number characters')
+            ImGui.Text('Maximum allowed value: 10000000')
+            inputText, inputSelected = ImGui.InputTextWithHint("Amount", "value", inputText, 100)
+            buttonCustomNumberPressed = ImGui.Button("Submit", 200, 25)
+            ImGui.Text('(Submit 0 to go back / exit))')
+        end
+        ImGui.End()
+    end
+end
+
+---Reset custom input state (called from DespawnTable)
+function RouletteMainMenu.ResetCustomInput()
+    RouletteMainMenu.showCustomBuyChips = false
+    RouletteMainMenu.showCustomBetChips = false
+    buttonCustomNumberPressed = false
+    inputText = ""
+    inputSelected = nil
 end
 
 return RouletteMainMenu

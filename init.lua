@@ -251,12 +251,6 @@ local holoDisplayAngleRad = 0
 local showingHoloResult = false
 local doubleDigitHoloResult = false
 
--- Custom value input variables
-local inputSelected
-local inputText = ""
-showCustomBuyChips = false
-showCustomBetChips = false
-local buttonCustomNumberPressed = false
 
 --Callbacks
 --=========
@@ -548,46 +542,10 @@ registerForEvent('onUpdate', function(dt) --runs every frame
             HolographicValueDisplay.Update(playerPile.value or 0)
         end
     end
-    if buttonCustomNumberPressed then
-        local inputValue = tonumber(inputText)
-        if showCustomBuyChips then
-            showCustomBuyChips = false
-            local playerMoney = Game.GetTransactionSystem():GetItemQuantity(GetPlayer(), MarketSystem.Money())
-            if playerMoney >= inputValue and inputValue >= 0 and inputValue <= 10000000 then
-                interactionUI.hideHub()
-                ChipPlayerPile.ChangePlayerChipValue(inputValue)
-                Game.AddToInventory("Items.money", -(inputValue) )
-                Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
-                RouletteMainMenu.MainMenuUI()
-            end
-        elseif showCustomBetChips then
-            showCustomBetChips = false
-            local playerPile = ChipPlayerPile.GetPlayerPile()
-            if playerPile.value >= inputValue and inputValue >= 0 and inputValue <= 10000000 then
-                interactionUI.hideHub()
-                PlaceBet(inputValue)
-                RouletteMainMenu.MainMenuUI()
-            end
-        else
-            DualPrint('=t Error: button pressed, but no showCustomChips flag set. code 4509')
-        end
-        buttonCustomNumberPressed = false
-    end
+    RouletteMainMenu.Update()
 end)
 registerForEvent('onDraw', function()
-    if showCustomBuyChips or showCustomBetChips then
-        ImGui.SetNextWindowPos(100, 500, ImGuiCond.FirstUseEver) -- set window position x, y
-        ImGui.SetNextWindowSize(300, 600, ImGuiCond.Appearing) -- set window size w, h
-        if ImGui.Begin('Input Value', ImGuiWindowFlags.AlwaysAutoResize) then
-            ImGui.Text('Press Cyber Engine Tweaks Overlay Button to Interact')
-            ImGui.Text('Only number characters')
-            ImGui.Text('Maximum allowed value: 10000000')
-            inputText, inputSelected = ImGui.InputTextWithHint("Amount", "value", inputText, 100)
-            buttonCustomNumberPressed = ImGui.Button("Submit", 200, 25)
-            ImGui.Text('(Submit 0 to go back / exit))')
-        end
-        ImGui.End()
-    end
+    RouletteMainMenu.Draw()
 end)
 --dev hotkeys
 --[[
@@ -846,9 +804,7 @@ function DespawnTable() --despawns ents and resets script variables
         }
         holographicDisplayActive = false
         holographicDisplayPosition = nil
-        showCustomBuyChips = false
-        showCustomBetChips = false
-        buttonCustomNumberPressed = false
+        RouletteMainMenu.ResetCustomInput()
     end
     Cron.After(0.2, callbackResetVariables)
 
