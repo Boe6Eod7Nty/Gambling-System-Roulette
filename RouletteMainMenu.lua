@@ -938,9 +938,9 @@ function RouletteMainMenu.BetSplitUI(page)
         table.insert(choicesFonts, fontFifthSplit)
         table.insert(choicesFonts, fontSixthSplit)
     end
-    table.insert(choicesFonts, gameinteractionsChoiceType.AlreadyRead)
-    table.insert(choicesFonts, gameinteractionsChoiceType.AlreadyRead)
-    table.insert(choicesFonts, gameinteractionsChoiceType.AlreadyRead)
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
     local choicesActions = {
         function()
             --print("Choice 1 used")
@@ -1100,7 +1100,7 @@ function RouletteMainMenu.BetStreetUI(page)
                           "ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon",
                           "ChoiceCaptionParts.GetInIcon","ChoiceCaptionParts.TalkIcon"}
     local choicesFonts = {fontFirstStreet, fontSecondStreet, fontThirdStreet, fontFourthStreet, fontFifthStreet, fontSixthStreet,
-                          gameinteractionsChoiceType.AlreadyRead, gameinteractionsChoiceType.AlreadyRead}
+                          gameinteractionsChoiceType.Selected, gameinteractionsChoiceType.Selected}
     local choicesActions = {
         function()
             if showFirstStreet then
