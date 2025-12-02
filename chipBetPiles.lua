@@ -191,15 +191,36 @@ function ChipBetPiles.CreateBetStack(betObject)
         end
         local mod3 = firstNumber % 3
         local coords = {x=0, y=0}
+        local row = 0
         local column = 0
-        if mod3 == 1 then
-            coords.y = 5
-            column = (firstNumber+2) / 3
+        if mod3 == 0 then
+            row = firstNumber / 3
+            column = 3
+        elseif mod3 == 1 then
+            row = (firstNumber+2) / 3
+            column = 1
         else
-            coords.y = 4
-            column = (firstNumber+1) / 3
+            row = (firstNumber+1) / 3
+            column = 2
         end
-        coords.x = (-column + 13) + 1.5
+        -- Corner bets are positioned at the intersection of four numbers
+        -- For straight-up bets: x = 13.5 - xOffset, y = 5.5 - yOffset
+        -- where xOffset = floor(betNum/3 - 1/3), yOffset = (betNum-1) % 3
+        -- Corner bets span two columns and two rows:
+        -- - If mod3 == 1 (column 1): corner is between columns 1-2, rows 1-2 (left side)
+        -- - If mod3 == 2 (column 2): corner is between columns 2-3, rows 1-2 (right side)
+        -- x position: between the two rows (same for both left and right corners in same row)
+        coords.x = (-row + 13) + 1
+        -- y position: between the two columns
+        -- For left side (columns 1-2): y = 5 (midpoint between y=5.5 and y=4.5)
+        -- For right side (columns 2-3): y = 4 (midpoint between y=4.5 and y=3.5)
+        if mod3 == 1 then
+            -- Left side corner (between columns 1 and 2)
+            coords.y = 5
+        else
+            -- Right side corner (between columns 2 and 3)
+            coords.y = 4
+        end
         betWorldLocation = ChipUtils.HexToBoardCoords({x=coords.x, y=coords.y})
     elseif betCategory == "Line" then
         local firstNumber = 0

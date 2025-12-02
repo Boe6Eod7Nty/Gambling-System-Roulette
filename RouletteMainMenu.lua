@@ -784,14 +784,13 @@ function RouletteMainMenu.BetInsideUI()
     end
     local showCorner = false
     local fontCorner = gameinteractionsChoiceType.AlreadyRead
-    -- Corner betting disabled for now, will be enabled later
-    -- for i,v in ipairs(betsPlacesTaken[9]) do
-    --     if v == false then
-    --         showCorner = true
-    --         fontCorner = gameinteractionsChoiceType.Selected
-    --         break
-    --     end
-    -- end
+    for i,v in ipairs(betsPlacesTaken[9]) do
+        if v == false then
+            showCorner = true
+            fontCorner = gameinteractionsChoiceType.Selected
+            break
+        end
+    end
     local showLine = false
     local fontLine = gameinteractionsChoiceType.AlreadyRead
     -- Line betting disabled for now, will be enabled later
@@ -828,8 +827,8 @@ function RouletteMainMenu.BetInsideUI()
             --print("Choice 3 used")
             if showCorner then
                 interactionUI.hideHub()
-                queueUIBet.bet = "Corner"
-                RouletteMainMenu.BetCornerUI()
+                queueUIBet.cat = "Corner"
+                RouletteMainMenu.BetCornerUI(1)
             end
         end,
         function()
@@ -1166,12 +1165,197 @@ function RouletteMainMenu.BetStreetUI(page)
     CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
 end
 
----Bet Corner UI (placeholder - needs implementation)
-function RouletteMainMenu.BetCornerUI()
-    -- TODO: Implement BetCornerUI
-    DualPrint('BetCornerUI not yet implemented')
-    interactionUI.hideHub()
-    RouletteMainMenu.PlaceBetsUI()
+---Bet Corner UI
+---@param page number
+function RouletteMainMenu.BetCornerUI(page)
+    if not page then page = 1 end
+    local firstIndex = 6*page-6
+    local showFirstCorner = false
+    local fontFirstCorner = gameinteractionsChoiceType.AlreadyRead
+    local showSecondCorner = false
+    local fontSecondCorner = gameinteractionsChoiceType.AlreadyRead
+    local showThirdCorner = false
+    local fontThirdCorner = gameinteractionsChoiceType.AlreadyRead
+    local showFourthCorner = false
+    local fontFourthCorner = gameinteractionsChoiceType.AlreadyRead
+    local showFifthCorner = false
+    local fontFifthCorner = gameinteractionsChoiceType.AlreadyRead
+    local showSixthCorner = false
+    local fontSixthCorner = gameinteractionsChoiceType.AlreadyRead
+
+    if firstIndex+1 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+1] == false then
+        showFirstCorner = true
+        fontFirstCorner = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+2 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+2] == false then
+        showSecondCorner = true
+        fontSecondCorner = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+3 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+3] == false then
+        showThirdCorner = true
+        fontThirdCorner = gameinteractionsChoiceType.Selected
+    end
+    if page < 4 then
+        if firstIndex+4 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+4] == false then
+            showFourthCorner = true
+            fontFourthCorner = gameinteractionsChoiceType.Selected
+        end
+        if firstIndex+5 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+5] == false then
+            showFifthCorner = true
+            fontFifthCorner = gameinteractionsChoiceType.Selected
+        end
+        if firstIndex+6 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+6] == false then
+            showSixthCorner = true
+            fontSixthCorner = gameinteractionsChoiceType.Selected
+        end
+    elseif firstIndex+4 <= #betsPlacesTaken[9] and betsPlacesTaken[9][firstIndex+4] == false then
+        showFourthCorner = true
+        fontFourthCorner = gameinteractionsChoiceType.Selected
+    end
+
+    local choiceCount = 9
+    if page == 4 then
+        choiceCount = 6
+    end
+    local hubName = GameLocale.Text("Roulette")
+    local choicesStrings = {}
+    for i=1,6 do
+        if page < 4 or i <= 4 then
+            local betIndex = firstIndex + i
+            -- Check bounds to prevent nil access
+            if betIndex <= #betCategoryIndexes[9] then
+                local cornerBet = ''
+                local betDefinition = betCategoryIndexes[9][betIndex]
+                if betDefinition then
+                    -- Extract the corner numbers (e.g., "1/5 Corner" -> "1/5")
+                    local cornerIndex = string.find(betDefinition, " Corner")
+                    if cornerIndex then
+                        cornerBet = string.sub(betDefinition, 1, cornerIndex - 1)
+                    else
+                        cornerBet = betDefinition
+                    end
+                    table.insert(choicesStrings, GameLocale.Text("Bet")..' '..cornerBet..' '..GameLocale.Text("Corner"))
+                end
+            end
+        end
+    end
+    table.insert(choicesStrings, GameLocale.Text("Previous Page"))
+    table.insert(choicesStrings, GameLocale.Text("Return"))
+    table.insert(choicesStrings, GameLocale.Text("Next Page"))
+    local choicesIcons = {"ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon"}
+    if page < 4 then
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+    elseif page == 4 then
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+    end
+    table.insert(choicesIcons, "ChoiceCaptionParts.TalkIcon")
+    table.insert(choicesIcons, "ChoiceCaptionParts.GetInIcon")
+    table.insert(choicesIcons, "ChoiceCaptionParts.TalkIcon")
+    local choicesFonts = {fontFirstCorner, fontSecondCorner, fontThirdCorner}
+    if page < 4 then
+        table.insert(choicesFonts, fontFourthCorner)
+        table.insert(choicesFonts, fontFifthCorner)
+        table.insert(choicesFonts, fontSixthCorner)
+    elseif page == 4 then
+        table.insert(choicesFonts, fontFourthCorner)
+    end
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    local choicesActions = {
+        function()
+            --print("Choice 1 used")
+            if showFirstCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+1]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            --print("Choice 2 used")
+            if showSecondCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+2]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            --print("Choice 3 used")
+            if showThirdCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+3]
+                RouletteMainMenu.BetValueUI()
+            end
+        end
+    }
+    if page < 4 then
+        table.insert(choicesActions,
+        function()
+            --print("Choice 4 used")
+            if showFourthCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+4]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+        table.insert(choicesActions,
+        function()
+            --print("Choice 5 used")
+            if showFifthCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+5]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+        table.insert(choicesActions,
+        function()
+            --print("Choice 6 used")
+            if showSixthCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+6]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+    elseif page == 4 then
+        table.insert(choicesActions,
+        function()
+            --print("Choice 4 used")
+            if showFourthCorner then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[9][firstIndex+4]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+    end
+    table.insert(choicesActions,
+    function()
+        --print("Choice Previous Page used")
+        interactionUI.hideHub()
+        if page > 1 then
+            RouletteMainMenu.BetCornerUI(page - 1) --display previous page
+        else
+            RouletteMainMenu.BetCornerUI(4) --loop to last page
+        end
+    end)
+    table.insert(choicesActions,
+    function()
+        --print("Choice Return used")
+        interactionUI.hideHub()
+        RouletteMainMenu.PlaceBetsUI()
+    end)
+    table.insert(choicesActions,
+    function()
+        --print("Choice Next Page used")
+        interactionUI.hideHub()
+        if page < 4 then
+            RouletteMainMenu.BetCornerUI(page+1)
+        else
+            RouletteMainMenu.BetCornerUI(1)
+        end
+    end)
+    CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
 end
 
 ---Bet Line UI (placeholder - needs implementation)
