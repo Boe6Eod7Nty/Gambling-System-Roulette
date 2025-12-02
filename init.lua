@@ -234,7 +234,7 @@ betsPlacesTaken = {
     {false, false, false}, -- 1-12, 13-24, 25-36 (outside)
     {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- straight up
     {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
-     false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- Splits (Inside)
+     false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- Splits (Inside) - 57 total
     {false, false, false, false, false, false, false, false, false, false, false, false}, -- Streets (Inside)
     {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- Corners (Inside)
     {false, false, false, false, false, false, false, false, false, false, false} -- Lines (Inside)
@@ -797,10 +797,11 @@ function DespawnTable() --despawns ents and resets script variables
             {false, false, false}, -- 1st column, 2nd column, 3rd column (outside)
             {false, false, false}, -- 1-12, 13-24, 25-36 (outside)
             {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- straight up
-            {false},
-            {false},
-            {false},
-            {false}
+            {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
+             false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- Splits (Inside) - 57 total
+            {false, false, false, false, false, false, false, false, false, false, false, false}, -- Streets (Inside)
+            {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}, -- Corners (Inside)
+            {false, false, false, false, false, false, false, false, false, false, false} -- Lines (Inside)
         }
         holographicDisplayActive = false
         holographicDisplayPosition = nil

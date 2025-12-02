@@ -216,19 +216,14 @@ function RouletteMainMenu.PlaceBetsUI()
     end
     local showInside = false
     local fontInside = gameinteractionsChoiceType.AlreadyRead
-    local insideTables = {betsPlacesTaken[7], betsPlacesTaken[8], betsPlacesTaken[9], betsPlacesTaken[10]}
-    --[[  DISABLED UNTIL DEVELOPER FIX - sry
-    for i,v in ipairs(insideTables) do
-        if showInside then break end
-        for j,k in ipairs(v) do
-            if k == false then
-                showInside = true
-                fontInside = gameinteractionsChoiceType.Selected
-                break
-            end
+    -- Only check split bets (index 7) for now, street/corner/line will be enabled later
+    for i,v in ipairs(betsPlacesTaken[7]) do
+        if v == false then
+            showInside = true
+            fontInside = gameinteractionsChoiceType.Selected
+            break
         end
     end
-    ]]--
 
     local choiceCount = 5
     local hubName = GameLocale.Text("Roulette")
@@ -780,31 +775,34 @@ function RouletteMainMenu.BetInsideUI()
     end
     local showStreet = false
     local fontStreet = gameinteractionsChoiceType.AlreadyRead
-    for i,v in ipairs(betsPlacesTaken[8]) do
-        if v == false then
-            showStreet = true
-            fontStreet = gameinteractionsChoiceType.Selected
-            break
-        end
-    end
+    -- Street betting disabled for now, will be enabled later
+    -- for i,v in ipairs(betsPlacesTaken[8]) do
+    --     if v == false then
+    --         showStreet = true
+    --         fontStreet = gameinteractionsChoiceType.Selected
+    --         break
+    --     end
+    -- end
     local showCorner = false
     local fontCorner = gameinteractionsChoiceType.AlreadyRead
-    for i,v in ipairs(betsPlacesTaken[9]) do
-        if v == false then
-            showCorner = true
-            fontCorner = gameinteractionsChoiceType.Selected
-            break
-        end
-    end
+    -- Corner betting disabled for now, will be enabled later
+    -- for i,v in ipairs(betsPlacesTaken[9]) do
+    --     if v == false then
+    --         showCorner = true
+    --         fontCorner = gameinteractionsChoiceType.Selected
+    --         break
+    --     end
+    -- end
     local showLine = false
     local fontLine = gameinteractionsChoiceType.AlreadyRead
-    for i,v in ipairs(betsPlacesTaken[10]) do
-        if v == false then
-            showLine = true
-            fontLine = gameinteractionsChoiceType.Selected
-            break
-        end
-    end
+    -- Line betting disabled for now, will be enabled later
+    -- for i,v in ipairs(betsPlacesTaken[10]) do
+    --     if v == false then
+    --         showLine = true
+    --         fontLine = gameinteractionsChoiceType.Selected
+    --         break
+    --     end
+    -- end
     local choiceCount = 5
     local hubName = GameLocale.Text("Roulette")
     local choicesStrings = {GameLocale.Text("Bet Split"), GameLocale.Text("Bet Street"), GameLocale.Text("Bet Corner"), GameLocale.Text("Bet Line"), GameLocale.Text("Return")}
@@ -815,7 +813,7 @@ function RouletteMainMenu.BetInsideUI()
             --print("Choice 1 used")
             if showSplit then
                 interactionUI.hideHub()
-                queueUIBet.bet = "Split"
+                queueUIBet.cat = "Split"
                 RouletteMainMenu.BetSplitUI(1)
             end
         end,
@@ -869,28 +867,28 @@ function RouletteMainMenu.BetSplitUI(page)
     local showSixthSplit = false
     local fontSixthSplit = gameinteractionsChoiceType.AlreadyRead
 
-    if betsPlacesTaken[7][firstIndex+1] == false then
+    if firstIndex+1 <= #betsPlacesTaken[7] and betsPlacesTaken[7][firstIndex+1] == false then
         showFirstSplit = true
         fontFirstSplit = gameinteractionsChoiceType.Selected
     end
-    if betsPlacesTaken[7][firstIndex+2] == false then
+    if firstIndex+2 <= #betsPlacesTaken[7] and betsPlacesTaken[7][firstIndex+2] == false then
         showSecondSplit = true
         fontSecondSplit = gameinteractionsChoiceType.Selected
     end
-    if betsPlacesTaken[7][firstIndex+3] == false then
+    if firstIndex+3 <= #betsPlacesTaken[7] and betsPlacesTaken[7][firstIndex+3] == false then
         showThirdSplit = true
         fontThirdSplit = gameinteractionsChoiceType.Selected
     end
     if page < 10 then
-        if betsPlacesTaken[7][firstIndex+4] == false then
+        if firstIndex+4 <= #betsPlacesTaken[7] and betsPlacesTaken[7][firstIndex+4] == false then
             showFourthSplit = true
             fontFourthSplit = gameinteractionsChoiceType.Selected
         end
-        if betsPlacesTaken[7][firstIndex+5] == false then
+        if firstIndex+5 <= #betsPlacesTaken[7] and betsPlacesTaken[7][firstIndex+5] == false then
             showFifthSplit = true
             fontFifthSplit = gameinteractionsChoiceType.Selected
         end
-        if betsPlacesTaken[7][firstIndex+6] == false then
+        if firstIndex+6 <= #betsPlacesTaken[7] and betsPlacesTaken[7][firstIndex+6] == false then
             showSixthSplit = true
             fontSixthSplit = gameinteractionsChoiceType.Selected
         end
@@ -904,17 +902,23 @@ function RouletteMainMenu.BetSplitUI(page)
     local choicesStrings = {}
     for i=1,6 do
         if page < 10 or i <= 3 then
-            local splitBet = ''
-            local betDefinition = betCategoryIndexes[7][firstIndex+i]
-            local stringIndex6 = string.sub(betDefinition, 6, 6)
-            if stringIndex6 == 'p' then
-                splitBet = string.sub(betDefinition, 1, 3)
-            elseif stringIndex6 == 'S' then
-                splitBet = string.sub(betDefinition, 1, 4)
-            else
-                splitBet = string.sub(betDefinition, 1, 5)
+            local betIndex = firstIndex + i
+            -- Check bounds to prevent nil access
+            if betIndex <= #betCategoryIndexes[7] then
+                local splitBet = ''
+                local betDefinition = betCategoryIndexes[7][betIndex]
+                if betDefinition then
+                    local stringIndex6 = string.sub(betDefinition, 6, 6)
+                    if stringIndex6 == 'p' then
+                        splitBet = string.sub(betDefinition, 1, 3)
+                    elseif stringIndex6 == 'S' then
+                        splitBet = string.sub(betDefinition, 1, 4)
+                    else
+                        splitBet = string.sub(betDefinition, 1, 5)
+                    end
+                    table.insert(choicesStrings, GameLocale.Text("Bet")..' '..splitBet..' '..GameLocale.Text("Split"))
+                end
             end
-            table.insert(choicesStrings, GameLocale.Text("Bet")..' '..splitBet..' '..GameLocale.Text("Split"))
         end
     end
     table.insert(choicesStrings, GameLocale.Text("Previous Page"))
@@ -943,6 +947,7 @@ function RouletteMainMenu.BetSplitUI(page)
             --print("Choice 1 used")
             if showFirstSplit then
                 interactionUI.hideHub()
+                queueUIBet.cat = "Split"
                 queueUIBet.bet = betCategoryIndexes[7][firstIndex+1]
                 RouletteMainMenu.BetValueUI()
             end
@@ -951,6 +956,7 @@ function RouletteMainMenu.BetSplitUI(page)
             --print("Choice 2 used")
             if showSecondSplit then
                 interactionUI.hideHub()
+                queueUIBet.cat = "Split"
                 queueUIBet.bet = betCategoryIndexes[7][firstIndex+2]
                 RouletteMainMenu.BetValueUI()
             end
@@ -959,6 +965,7 @@ function RouletteMainMenu.BetSplitUI(page)
             --print("Choice 3 used")
             if showThirdSplit then
                 interactionUI.hideHub()
+                queueUIBet.cat = "Split"
                 queueUIBet.bet = betCategoryIndexes[7][firstIndex+3]
                 RouletteMainMenu.BetValueUI()
             end
@@ -970,6 +977,7 @@ function RouletteMainMenu.BetSplitUI(page)
             --print("Choice 4 used")
             if showFourthSplit then
                 interactionUI.hideHub()
+                queueUIBet.cat = "Split"
                 queueUIBet.bet = betCategoryIndexes[7][firstIndex+4]
                 RouletteMainMenu.BetValueUI()
             end
@@ -979,6 +987,7 @@ function RouletteMainMenu.BetSplitUI(page)
             --print("Choice 5 used")
             if showFifthSplit then
                 interactionUI.hideHub()
+                queueUIBet.cat = "Split"
                 queueUIBet.bet = betCategoryIndexes[7][firstIndex+5]
                 RouletteMainMenu.BetValueUI()
             end
@@ -988,6 +997,7 @@ function RouletteMainMenu.BetSplitUI(page)
             --print("Choice 6 used")
             if showSixthSplit then
                 interactionUI.hideHub()
+                queueUIBet.cat = "Split"
                 queueUIBet.bet = betCategoryIndexes[7][firstIndex+6]
                 RouletteMainMenu.BetValueUI()
             end
@@ -998,9 +1008,9 @@ function RouletteMainMenu.BetSplitUI(page)
         --print("Choice 7 used")
         interactionUI.hideHub()
         if page > 1 then
-            RouletteMainMenu.BetSplitUI(page + 9) --display previous page
+            RouletteMainMenu.BetSplitUI(page - 1) --display previous page
         else
-            RouletteMainMenu.BetSplitUI(page + 1) --display next page
+            RouletteMainMenu.BetSplitUI(10) --loop to last page
         end
     end)
     table.insert(choicesActions,
