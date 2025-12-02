@@ -775,14 +775,13 @@ function RouletteMainMenu.BetInsideUI()
     end
     local showStreet = false
     local fontStreet = gameinteractionsChoiceType.AlreadyRead
-    -- Street betting disabled for now, will be enabled later
-    -- for i,v in ipairs(betsPlacesTaken[8]) do
-    --     if v == false then
-    --         showStreet = true
-    --         fontStreet = gameinteractionsChoiceType.Selected
-    --         break
-    --     end
-    -- end
+    for i,v in ipairs(betsPlacesTaken[8]) do
+        if v == false then
+            showStreet = true
+            fontStreet = gameinteractionsChoiceType.Selected
+            break
+        end
+    end
     local showCorner = false
     local fontCorner = gameinteractionsChoiceType.AlreadyRead
     -- Corner betting disabled for now, will be enabled later
@@ -821,8 +820,8 @@ function RouletteMainMenu.BetInsideUI()
             --print("Choice 2 used")
             if showStreet then
                 interactionUI.hideHub()
-                queueUIBet.bet = "Street"
-                RouletteMainMenu.BetStreetUI()
+                queueUIBet.cat = "Street"
+                RouletteMainMenu.BetStreetUI(1)
             end
         end,
         function()
@@ -1032,12 +1031,139 @@ function RouletteMainMenu.BetSplitUI(page)
     CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
 end
 
----Bet Street UI (placeholder - needs implementation)
-function RouletteMainMenu.BetStreetUI()
-    -- TODO: Implement BetStreetUI
-    DualPrint('BetStreetUI not yet implemented')
-    interactionUI.hideHub()
-    RouletteMainMenu.PlaceBetsUI()
+---Bet Street UI
+function RouletteMainMenu.BetStreetUI(page)
+    if not page then page = 1 end
+    local firstIndex = 6*page-6
+    local showFirstStreet = false
+    local fontFirstStreet = gameinteractionsChoiceType.AlreadyRead
+    local showSecondStreet = false
+    local fontSecondStreet = gameinteractionsChoiceType.AlreadyRead
+    local showThirdStreet = false
+    local fontThirdStreet = gameinteractionsChoiceType.AlreadyRead
+    local showFourthStreet = false
+    local fontFourthStreet = gameinteractionsChoiceType.AlreadyRead
+    local showFifthStreet = false
+    local fontFifthStreet = gameinteractionsChoiceType.AlreadyRead
+    local showSixthStreet = false
+    local fontSixthStreet = gameinteractionsChoiceType.AlreadyRead
+
+    if firstIndex+1 <= #betsPlacesTaken[8] and betsPlacesTaken[8][firstIndex+1] == false then
+        showFirstStreet = true
+        fontFirstStreet = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+2 <= #betsPlacesTaken[8] and betsPlacesTaken[8][firstIndex+2] == false then
+        showSecondStreet = true
+        fontSecondStreet = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+3 <= #betsPlacesTaken[8] and betsPlacesTaken[8][firstIndex+3] == false then
+        showThirdStreet = true
+        fontThirdStreet = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+4 <= #betsPlacesTaken[8] and betsPlacesTaken[8][firstIndex+4] == false then
+        showFourthStreet = true
+        fontFourthStreet = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+5 <= #betsPlacesTaken[8] and betsPlacesTaken[8][firstIndex+5] == false then
+        showFifthStreet = true
+        fontFifthStreet = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+6 <= #betsPlacesTaken[8] and betsPlacesTaken[8][firstIndex+6] == false then
+        showSixthStreet = true
+        fontSixthStreet = gameinteractionsChoiceType.Selected
+    end
+
+    local choiceCount = 8
+    local hubName = GameLocale.Text("Roulette")
+    local choicesStrings = {}
+    for i=1,6 do
+        local betIndex = firstIndex + i
+        -- Check bounds to prevent nil access
+        if betIndex <= #betCategoryIndexes[8] then
+            local streetBet = ''
+            local betDefinition = betCategoryIndexes[8][betIndex]
+            if betDefinition then
+                -- Extract the street numbers (e.g., "1,2,3 Street" -> "1,2,3")
+                local streetIndex = string.find(betDefinition, " Street")
+                if streetIndex then
+                    streetBet = string.sub(betDefinition, 1, streetIndex - 1)
+                else
+                    streetBet = betDefinition
+                end
+                table.insert(choicesStrings, GameLocale.Text("Bet")..' '..streetBet..' '..GameLocale.Text("Street"))
+            end
+        end
+    end
+    table.insert(choicesStrings, GameLocale.Text("Return"))
+    table.insert(choicesStrings, GameLocale.Text("Next Page"))
+    local choicesIcons = {"ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon",
+                          "ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon",
+                          "ChoiceCaptionParts.GetInIcon","ChoiceCaptionParts.TalkIcon"}
+    local choicesFonts = {fontFirstStreet, fontSecondStreet, fontThirdStreet, fontFourthStreet, fontFifthStreet, fontSixthStreet,
+                          gameinteractionsChoiceType.AlreadyRead, gameinteractionsChoiceType.AlreadyRead}
+    local choicesActions = {
+        function()
+            if showFirstStreet then
+                interactionUI.hideHub()
+                queueUIBet.cat = "Street"
+                queueUIBet.bet = betCategoryIndexes[8][firstIndex+1]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showSecondStreet then
+                interactionUI.hideHub()
+                queueUIBet.cat = "Street"
+                queueUIBet.bet = betCategoryIndexes[8][firstIndex+2]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showThirdStreet then
+                interactionUI.hideHub()
+                queueUIBet.cat = "Street"
+                queueUIBet.bet = betCategoryIndexes[8][firstIndex+3]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showFourthStreet then
+                interactionUI.hideHub()
+                queueUIBet.cat = "Street"
+                queueUIBet.bet = betCategoryIndexes[8][firstIndex+4]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showFifthStreet then
+                interactionUI.hideHub()
+                queueUIBet.cat = "Street"
+                queueUIBet.bet = betCategoryIndexes[8][firstIndex+5]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showSixthStreet then
+                interactionUI.hideHub()
+                queueUIBet.cat = "Street"
+                queueUIBet.bet = betCategoryIndexes[8][firstIndex+6]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            interactionUI.hideHub()
+            RouletteMainMenu.PlaceBetsUI()
+        end,
+        function()
+            interactionUI.hideHub()
+            if page < 2 then
+                RouletteMainMenu.BetStreetUI(page+1)
+            else
+                RouletteMainMenu.BetStreetUI(1)
+            end
+        end
+    }
+    CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
 end
 
 ---Bet Corner UI (placeholder - needs implementation)
