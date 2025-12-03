@@ -266,11 +266,12 @@ local callback40x = function()
         --idk if these need to be set but better safe than sorry. Loading bugs are hard to pinpoint.
         inRouletteTable = false
     end
-    if not areaInitialized and gameLoadDelayCount >= gameLoadDelayTime then --checks if area is loaded, and if the game has been running.
+    if gameLoadDelayCount >= gameLoadDelayTime then --checks if area is loaded, and if the game has been running.
         local playerPosition = GetPlayer():GetWorldPosition()
         
         -- Check all registered tables for nearby loading
         local tablesChecked = 0
+        local tablesInitialized = 0
         for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
             tablesChecked = tablesChecked + 1
             
@@ -281,12 +282,16 @@ local callback40x = function()
                 
                 if not isLoaded then
                     -- Table is nearby but not initialized yet
-                    areaInitialized = true
                     TableManager.setTableLoaded(tableID, true)
                     InitTable(tableID)
-                    break -- Only initialize one table at a time
+                    tablesInitialized = tablesInitialized + 1
+                    -- Continue checking other tables (removed break to allow multiple tables)
                 end
             end
+        end
+        
+        if tablesInitialized > 0 then
+            areaInitialized = true -- Set flag after at least one table is initialized
         end
         
         if tablesChecked == 0 then
@@ -359,6 +364,23 @@ local function RegisterRouletteSpot(tableID, mappinPos)
         disableDefaultUI = false, -- Explicitly set to false to ensure default UI shows
         callback_UIwithoutWorkspotTriggered = function()
             -- Handle joining the roulette table when player interacts
+            -- Ensure table is initialized before joining (spawn spinner/ball if needed)
+            if not TableManager.isTableLoaded(tableID) then
+                TableManager.setTableLoaded(tableID, true)
+                InitTable(tableID)
+            else
+                -- Table already initialized, but make sure active table and center point are set
+                TableManager.SetActiveTable(tableID)
+                local tableCenterPoint = TableManager.GetTableCenterPoint(tableID)
+                if tableCenterPoint then
+                    RouletteAnimations.UpdateBallCenter(tableCenterPoint)
+                else
+                    -- Table was marked as loaded but center point not set, re-initialize
+                    InitTable(tableID)
+                end
+            end
+            
+            -- Ensure active table is set (InitTable sets it, but be explicit)
             TableManager.SetActiveTable(tableID)
             interactionUI.hideHub()
             StatusEffectHelper.ApplyStatusEffect(Game.GetPlayer(), "GameplayRestriction.NoMovement") -- Disable player movement
@@ -645,50 +667,46 @@ function InitTable(tableID)
         DualPrint('[==e ERROR: InitTable: Failed to spawn roulette_ball entity')
     end
     
-    -- Register entities in local entRecords system for compatibility with FindEntIdByName, SetRotateEnt, etc.
-    -- Check if already exists to prevent duplicates
+    -- Note: Entities are now tracked per-table in TableManager.tableEntities[tableID]
+    -- FindEntIdByName will retrieve them from TableManager for table-specific entities
+    -- We still add to historicalEntRecords for cleanup purposes, but use table-specific names
+    -- to avoid conflicts when multiple tables are loaded
     if spinnerEntID then
-        local exists = false
-        for i, v in ipairs(entRecords) do
-            if v.name == 'roulette_spinner' then
-                exists = true
-                break
+        local tableSpecificName = tableID .. '_roulette_spinner'
+        -- Remove any existing entry with this table-specific name
+        for i = #entRecords, 1, -1 do
+            if entRecords[i].name == tableSpecificName then
+                table.remove(entRecords, i)
             end
         end
-        if not exists then
-            table.insert(entRecords, { name = 'roulette_spinner', id = spinnerEntID })
-            table.insert(historicalEntRecords, { name = 'roulette_spinner', id = spinnerEntID })
-        end
+        table.insert(entRecords, { name = tableSpecificName, id = spinnerEntID })
+        table.insert(historicalEntRecords, { name = tableSpecificName, id = spinnerEntID })
     end
     if ballEntID then
-        local exists = false
-        for i, v in ipairs(entRecords) do
-            if v.name == 'roulette_ball' then
-                exists = true
-                break
+        local tableSpecificName = tableID .. '_roulette_ball'
+        -- Remove any existing entry with this table-specific name
+        for i = #entRecords, 1, -1 do
+            if entRecords[i].name == tableSpecificName then
+                table.remove(entRecords, i)
             end
         end
-        if not exists then
-            table.insert(entRecords, { name = 'roulette_ball', id = ballEntID })
-            table.insert(historicalEntRecords, { name = 'roulette_ball', id = ballEntID })
-        end
+        table.insert(entRecords, { name = tableSpecificName, id = ballEntID })
+        table.insert(historicalEntRecords, { name = tableSpecificName, id = ballEntID })
     end
     
     -- Check if preset table (gunrunnersclub needs frame)
     if tableID == 'gunrunnersclub' then
         local frameEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner_frame', roulette_spinner_frame, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
         if frameEntID then
-            local exists = false
-            for i, v in ipairs(entRecords) do
-                if v.name == 'roulette_spinner_frame' then
-                    exists = true
-                    break
+            local tableSpecificName = tableID .. '_roulette_spinner_frame'
+            -- Remove any existing entry with this table-specific name
+            for i = #entRecords, 1, -1 do
+                if entRecords[i].name == tableSpecificName then
+                    table.remove(entRecords, i)
                 end
             end
-            if not exists then
-                table.insert(entRecords, { name = 'roulette_spinner_frame', id = frameEntID })
-                table.insert(historicalEntRecords, { name = 'roulette_spinner_frame', id = frameEntID })
-            end
+            table.insert(entRecords, { name = tableSpecificName, id = frameEntID })
+            table.insert(historicalEntRecords, { name = tableSpecificName, id = frameEntID })
         end
     end
 
@@ -735,16 +753,23 @@ function DespawnTable() --despawns ents and resets script variables
     
     -- Also remove from local entRecords for consistency
     -- (TableManager already despawned them, but we need to clean up our tracking)
-    local entitiesToRemove = {'roulette_spinner', 'roulette_spinner_frame', 'roulette_ball'}
-    for _, devName in ipairs(entitiesToRemove) do
-        local foundMatch = 1
-        while foundMatch > 0 do
-            foundMatch = 0
-            for i, v in ipairs(entRecords) do
-                if v.name == devName then
-                    table.remove(entRecords, i)
-                    foundMatch = 1
-                    break
+    -- Remove table-specific entity names for this table
+    if activeTableID then
+        local tableSpecificNames = {
+            activeTableID .. '_roulette_spinner',
+            activeTableID .. '_roulette_spinner_frame',
+            activeTableID .. '_roulette_ball'
+        }
+        for _, devName in ipairs(tableSpecificNames) do
+            local foundMatch = 1
+            while foundMatch > 0 do
+                foundMatch = 0
+                for i = #entRecords, 1, -1 do
+                    if entRecords[i].name == devName then
+                        table.remove(entRecords, i)
+                        foundMatch = 1
+                        break
+                    end
                 end
             end
         end
@@ -832,7 +857,26 @@ end
 function DeRegisterEntity(devName) -- delete and remove entity from local system
     --DualPrint('[==q Ran DeRegisterEntity(), devName: '..devName)
 
-    local entity = Game.FindEntityByID(FindEntIdByName(devName))
+    local entID = FindEntIdByName(devName)
+    if not entID then
+        -- Entity ID not found, just clean up entRecords
+        local foundMatch = 1
+        while foundMatch > 0 do
+            foundMatch = 1
+            for i,v in ipairs(entRecords) do
+                if v.name == devName then
+                    table.remove(entRecords, i)
+                    foundMatch = 2
+                    break
+                end
+            end
+            if foundMatch == 1 then
+                foundMatch = 0
+            end
+        end
+        return
+    end
+    local entity = Game.FindEntityByID(entID)
     if entity == nil then
         --DualPrint('=q entity is nil')
         -- Remove from entRecords even if entity is nil
@@ -854,7 +898,7 @@ function DeRegisterEntity(devName) -- delete and remove entity from local system
     end
     local currentPos = entity:GetWorldPosition()
     --DualPrint('=q entity pos pre  x: '..currentPos.x..' y: '..currentPos.y..' z: '..currentPos.z)
-    Despawn(FindEntIdByName(devName))
+    Despawn(entID) -- Use the entID we already retrieved
 
     local foundMatch = 1
     while foundMatch > 0 do
@@ -874,6 +918,29 @@ function DeRegisterEntity(devName) -- delete and remove entity from local system
 end
 
 function FindEntIdByName(devName, entList) -- find devName in entRecords and return id
+    -- First, check TableManager for table-specific entities (roulette_spinner, roulette_ball, roulette_spinner_frame)
+    -- These entities are tracked per table, so we need to get the active table's entity
+    local tableSpecificEntities = {'roulette_spinner', 'roulette_ball', 'roulette_spinner_frame'}
+    local isTableSpecific = false
+    for _, name in ipairs(tableSpecificEntities) do
+        if devName == name then
+            isTableSpecific = true
+            break
+        end
+    end
+    
+    if isTableSpecific then
+        local activeTableID = TableManager.GetActiveTable()
+        if activeTableID then
+            local entID = TableManager.getTableEntity(activeTableID, devName)
+            if entID then
+                return entID
+            end
+        end
+        -- If no active table or entity not found in TableManager, fall through to entRecords
+    end
+    
+    -- For non-table-specific entities, check entRecords
     local indicies = {}
     for i,v in ipairs(entRecords) do --find all matches
         if v.name == devName then
@@ -892,12 +959,16 @@ function FindEntIdByName(devName, entList) -- find devName in entRecords and ret
             return v.id
         end
     end
+    -- Return nil if no entity found (instead of chips0 which may not exist)
+    return nil
 end
 
 function MoveEnt(idName, xyz, rpy) --move entity by xyz realative to current position
     if not xyz then xyz = {x=0, y=0, z=0} return end --set default value
 
-    local entity = Game.FindEntityByID(FindEntIdByName(idName))
+    local entID = FindEntIdByName(idName)
+    if not entID then return end -- Check for nil entity ID before calling FindEntityByID
+    local entity = Game.FindEntityByID(entID)
     if entity == nil then return end
     local currentRot = entity:GetWorldOrientation()
     local currentPos = entity:GetWorldPosition()
@@ -912,7 +983,9 @@ end
 function SetRotateEnt(idName, rpy) --teleport an entity to specified rotation at the same location
     if not rpy then rpy = {r=0, p=0, y=0} return end --set default value
 
-    local entity = Game.FindEntityByID(FindEntIdByName(idName))
+    local entID = FindEntIdByName(idName)
+    if not entID then return end -- Check for nil entity ID before calling FindEntityByID
+    local entity = Game.FindEntityByID(entID)
     if entity == nil then return end
     local currentPos = entity:GetWorldPosition()
     local newRot = EulerAngles.new(rpy.r, rpy.p, rpy.y)
@@ -1229,14 +1302,19 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
         if betsPile and betsPile.stacksInfo and betsPile.stacksInfo[1] then
             local entDevName = betsPile.stacksInfo[1].stackDevName
             --get ent location position
-            local entity = Game.FindEntityByID(FindEntIdByName(entDevName))
-            if entity then
-                local pos = entity:GetWorldPosition()
-                local holoDevName = entDevName..'_holo'
-                table.insert(holoEnts, holoDevName)
-                RegisterEntity(holoDevName, chip_stacks, 'default', {x=pos.x,y=pos.y,z=pos.z-0.02})
+            local entID = FindEntIdByName(entDevName)
+            if not entID then
+                DualPrint('[==e ERROR: Could not find entity ID for '..entDevName..' for winner bet '..v)
             else
-                DualPrint('[==e ERROR: Could not find entity '..entDevName..' for winner bet '..v)
+                local entity = Game.FindEntityByID(entID)
+                if entity then
+                    local pos = entity:GetWorldPosition()
+                    local holoDevName = entDevName..'_holo'
+                    table.insert(holoEnts, holoDevName)
+                    RegisterEntity(holoDevName, chip_stacks, 'default', {x=pos.x,y=pos.y,z=pos.z-0.02})
+                else
+                    DualPrint('[==e ERROR: Could not find entity '..entDevName..' for winner bet '..v)
+                end
             end
         else
             DualPrint('[==e ERROR: betsPile or stacksInfo missing for winner bet '..v)
@@ -1379,3 +1457,4 @@ end
 --DualPrint('[log] init.lua loaded, Time: '..tostring(os.time()))
 --DualPrint('-=- Welcome to Roulette by Boe6! -=- Current Unix Time: '..os.time())
 return Roulette
+
