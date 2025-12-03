@@ -9,6 +9,8 @@ RouletteCoordinates = {
 --Feel free to ask via nexus/discord, I just dont want my stuff stolen :)
 --===================
 
+local JsonData = require('JsonData.lua')
+
 ---Initializes all roulette table coordinates and offsets
 function RouletteCoordinates.init()
     -- Register roulette-specific offsets
@@ -126,6 +128,28 @@ function RouletteCoordinates.init()
     
     -- Note: northoakcasino is commented out in original code, so not registering it here
     -- If needed in the future, uncomment and add similar dependency check
+
+    -- Load tables from JSON files in addons folder (after hardcoded tables)
+    local addonTables = JsonData.ReturnAllFromFolder("addons")
+    for _, tableData in ipairs(addonTables) do
+        -- Convert position to Vector4
+        local position = Vector4.new(tableData.position.x, tableData.position.y, tableData.position.z, 1)
+        
+        -- Create Quaternion directly from i, j, k, r components
+        local quaternion = Quaternion.new(
+            tableData.orientation.i or 0,
+            tableData.orientation.j or 0,
+            tableData.orientation.k or 0,
+            tableData.orientation.r or 1
+        )
+        
+        -- Register the table
+        RelativeCoordinateCalulator.registerTable(
+            tableData.id,
+            position,
+            quaternion
+        )
+    end
 end
 
 return RouletteCoordinates
