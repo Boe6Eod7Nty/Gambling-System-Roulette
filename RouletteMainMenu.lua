@@ -793,14 +793,13 @@ function RouletteMainMenu.BetInsideUI()
     end
     local showLine = false
     local fontLine = gameinteractionsChoiceType.AlreadyRead
-    -- Line betting disabled for now, will be enabled later
-    -- for i,v in ipairs(betsPlacesTaken[10]) do
-    --     if v == false then
-    --         showLine = true
-    --         fontLine = gameinteractionsChoiceType.Selected
-    --         break
-    --     end
-    -- end
+    for i,v in ipairs(betsPlacesTaken[10]) do
+        if v == false then
+            showLine = true
+            fontLine = gameinteractionsChoiceType.Selected
+            break
+        end
+    end
     local choiceCount = 5
     local hubName = GameLocale.Text("Roulette")
     local choicesStrings = {GameLocale.Text("Bet Split"), GameLocale.Text("Bet Street"), GameLocale.Text("Bet Corner"), GameLocale.Text("Bet Line"), GameLocale.Text("Return")}
@@ -835,8 +834,8 @@ function RouletteMainMenu.BetInsideUI()
             --print("Choice 4 used")
             if showLine then
                 interactionUI.hideHub()
-                queueUIBet.bet = "Line"
-                RouletteMainMenu.BetLineUI()
+                queueUIBet.cat = "Line"
+                RouletteMainMenu.BetLineUI(1)
             end
         end,
         function()
@@ -1358,12 +1357,189 @@ function RouletteMainMenu.BetCornerUI(page)
     CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
 end
 
----Bet Line UI (placeholder - needs implementation)
-function RouletteMainMenu.BetLineUI()
-    -- TODO: Implement BetLineUI
-    DualPrint('BetLineUI not yet implemented')
-    interactionUI.hideHub()
-    RouletteMainMenu.PlaceBetsUI()
+---Bet Line UI
+---@param page number
+function RouletteMainMenu.BetLineUI(page)
+    if not page then page = 1 end
+    local firstIndex = 6*page-6
+    local showFirstLine = false
+    local fontFirstLine = gameinteractionsChoiceType.AlreadyRead
+    local showSecondLine = false
+    local fontSecondLine = gameinteractionsChoiceType.AlreadyRead
+    local showThirdLine = false
+    local fontThirdLine = gameinteractionsChoiceType.AlreadyRead
+    local showFourthLine = false
+    local fontFourthLine = gameinteractionsChoiceType.AlreadyRead
+    local showFifthLine = false
+    local fontFifthLine = gameinteractionsChoiceType.AlreadyRead
+    local showSixthLine = false
+    local fontSixthLine = gameinteractionsChoiceType.AlreadyRead
+
+    if firstIndex+1 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+1] == false then
+        showFirstLine = true
+        fontFirstLine = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+2 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+2] == false then
+        showSecondLine = true
+        fontSecondLine = gameinteractionsChoiceType.Selected
+    end
+    if firstIndex+3 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+3] == false then
+        showThirdLine = true
+        fontThirdLine = gameinteractionsChoiceType.Selected
+    end
+    if page < 2 then
+        if firstIndex+4 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+4] == false then
+            showFourthLine = true
+            fontFourthLine = gameinteractionsChoiceType.Selected
+        end
+        if firstIndex+5 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+5] == false then
+            showFifthLine = true
+            fontFifthLine = gameinteractionsChoiceType.Selected
+        end
+        if firstIndex+6 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+6] == false then
+            showSixthLine = true
+            fontSixthLine = gameinteractionsChoiceType.Selected
+        end
+    elseif firstIndex+4 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+4] == false then
+        showFourthLine = true
+        fontFourthLine = gameinteractionsChoiceType.Selected
+    end
+    if page == 2 and firstIndex+5 <= #betsPlacesTaken[10] and betsPlacesTaken[10][firstIndex+5] == false then
+        showFifthLine = true
+        fontFifthLine = gameinteractionsChoiceType.Selected
+    end
+
+    local choiceCount = 8
+    if page == 2 then
+        choiceCount = 7
+    end
+    local hubName = GameLocale.Text("Roulette")
+    local choicesStrings = {}
+    for i=1,6 do
+        if page < 2 or i <= 5 then
+            local betIndex = firstIndex + i
+            -- Check bounds to prevent nil access
+            if betIndex <= #betCategoryIndexes[10] then
+                local lineBet = ''
+                local betDefinition = betCategoryIndexes[10][betIndex]
+                if betDefinition then
+                    -- Extract the line numbers (e.g., "1-6 Line" -> "1-6")
+                    local lineIndex = string.find(betDefinition, " Line")
+                    if lineIndex then
+                        lineBet = string.sub(betDefinition, 1, lineIndex - 1)
+                    else
+                        lineBet = betDefinition
+                    end
+                    table.insert(choicesStrings, GameLocale.Text("Bet")..' '..lineBet..' '..GameLocale.Text("Line"))
+                end
+            end
+        end
+    end
+    table.insert(choicesStrings, GameLocale.Text("Return"))
+    table.insert(choicesStrings, GameLocale.Text("Next Page"))
+    local choicesIcons = {"ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon"}
+    if page < 2 then
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+    elseif page == 2 then
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+        table.insert(choicesIcons, "ChoiceCaptionParts.DistractIcon")
+    end
+    table.insert(choicesIcons, "ChoiceCaptionParts.GetInIcon")
+    table.insert(choicesIcons, "ChoiceCaptionParts.TalkIcon")
+    local choicesFonts = {fontFirstLine, fontSecondLine, fontThirdLine}
+    if page < 2 then
+        table.insert(choicesFonts, fontFourthLine)
+        table.insert(choicesFonts, fontFifthLine)
+        table.insert(choicesFonts, fontSixthLine)
+    elseif page == 2 then
+        table.insert(choicesFonts, fontFourthLine)
+        table.insert(choicesFonts, fontFifthLine)
+    end
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    table.insert(choicesFonts, gameinteractionsChoiceType.Selected)
+    local choicesActions = {
+        function()
+            if showFirstLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+1]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showSecondLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+2]
+                RouletteMainMenu.BetValueUI()
+            end
+        end,
+        function()
+            if showThirdLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+3]
+                RouletteMainMenu.BetValueUI()
+            end
+        end
+    }
+    if page < 2 then
+        table.insert(choicesActions,
+        function()
+            if showFourthLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+4]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+        table.insert(choicesActions,
+        function()
+            if showFifthLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+5]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+        table.insert(choicesActions,
+        function()
+            if showSixthLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+6]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+    elseif page == 2 then
+        table.insert(choicesActions,
+        function()
+            if showFourthLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+4]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+        table.insert(choicesActions,
+        function()
+            if showFifthLine then
+                interactionUI.hideHub()
+                queueUIBet.bet = betCategoryIndexes[10][firstIndex+5]
+                RouletteMainMenu.BetValueUI()
+            end
+        end)
+    end
+    table.insert(choicesActions,
+    function()
+        interactionUI.hideHub()
+        RouletteMainMenu.PlaceBetsUI()
+    end)
+    table.insert(choicesActions,
+    function()
+        interactionUI.hideHub()
+        if page < 2 then
+            RouletteMainMenu.BetLineUI(page+1)
+        else
+            RouletteMainMenu.BetLineUI(1)
+        end
+    end)
+    CommitUI(choiceCount, hubName, choicesStrings, choicesIcons, choicesFonts, choicesActions)
 end
 
 ---Bet Value UI

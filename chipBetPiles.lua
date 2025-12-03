@@ -229,8 +229,14 @@ function ChipBetPiles.CreateBetStack(betObject)
         else
             firstNumber = tonumber(string.sub(betChoice, 1, 2))
         end
-        local row = (firstNumber+3)/3
-        betWorldLocation = ChipUtils.HexToBoardCoords({x=(-row + 13) + 1, y=3})
+        -- Line bets span two rows, so calculate the midpoint
+        -- Row of first number: ceil(firstNumber / 3)
+        -- Row of last number: ceil((firstNumber+5) / 3) since line bets span 6 numbers
+        -- Midpoint: (row1 + row2) / 2
+        local row1 = math.ceil(firstNumber / 3)
+        local row2 = math.ceil((firstNumber + 5) / 3)
+        local row = (row1 + row2) / 2
+        betWorldLocation = ChipUtils.HexToBoardCoords({x=(-row + 13) + 1.5, y=3})
     end
 
     betsPiles[betID] = {
