@@ -126,15 +126,10 @@ function RouletteCoordinates.init()
     RelativeCoordinateCalulator.registerTable('tygerclawscasino', tygerclawsPosition, tygerclawsOrientation)
     
     -- Register optional tables (with dependency checks)
-    -- gunrunnersclub table
-    local gunrunnersDependency = GetMod('Gambling System - Compatability - Gunrunnersclub')
-    if gunrunnersDependency then
-        -- Z offset correction is automatically applied via spinner_center_point offset
-        local gunrunnersPosition = Vector4.new(-2228.825, -2550.422, 81.209, 1)
-        -- Convert tableRotation (-43.068 degrees) to Quaternion
-        local gunrunnersOrientation = EulerAngles.new(0, 0, -43.068):ToQuat()
-        RelativeCoordinateCalulator.registerTable('gunrunnersclub', gunrunnersPosition, gunrunnersOrientation)
-    end
+    -- gunrunnersclub table (obsolete mod - coordinates kept as comment for potential future updates)
+    -- local gunrunnersPosition = Vector4.new(-2228.825, -2550.422, 81.209, 1)
+    -- local gunrunnersOrientation = EulerAngles.new(0, 0, -43.068):ToQuat()
+    -- RelativeCoordinateCalulator.registerTable('gunrunnersclub', gunrunnersPosition, gunrunnersOrientation)
     
     -- Note: northoakcasino is commented out in original code, so not registering it here
     -- If needed in the future, uncomment and add similar dependency check

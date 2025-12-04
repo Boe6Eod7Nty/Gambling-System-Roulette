@@ -748,24 +748,8 @@ function InitTable(tableID)
         table.insert(historicalEntRecords, { name = tableSpecificName, id = ballEntID })
     end
     
-    -- Check if preset table (gunrunnersclub needs frame)
-    if tableID == 'gunrunnersclub' then
-        local frameEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner_frame', roulette_spinner_frame, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
-        if frameEntID then
-            local tableSpecificName = tableID .. '_roulette_spinner_frame'
-            -- Remove any existing entry with this table-specific name
-            for i = #entRecords, 1, -1 do
-                if entRecords[i].name == tableSpecificName then
-                    table.remove(entRecords, i)
-                end
-            end
-            table.insert(entRecords, { name = tableSpecificName, id = frameEntID })
-            table.insert(historicalEntRecords, { name = tableSpecificName, id = frameEntID })
-        end
-    end
-    
     -- Check if JSON imported table (spawn frame for JSON tables, excluding hooh and tygerclaws)
-    local hardcodedTables = {'hoohbar', 'tygerclawscasino', 'gunrunnersclub'}
+    local hardcodedTables = {'hoohbar', 'tygerclawscasino'}
     local isHardcoded = false
     for _, hardcodedID in ipairs(hardcodedTables) do
         if tableID == hardcodedID then
