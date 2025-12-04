@@ -763,6 +763,38 @@ function InitTable(tableID)
             table.insert(historicalEntRecords, { name = tableSpecificName, id = frameEntID })
         end
     end
+    
+    -- Check if JSON imported table (spawn frame for JSON tables, excluding hooh and tygerclaws)
+    local hardcodedTables = {'hoohbar', 'tygerclawscasino', 'gunrunnersclub'}
+    local isHardcoded = false
+    for _, hardcodedID in ipairs(hardcodedTables) do
+        if tableID == hardcodedID then
+            isHardcoded = true
+            break
+        end
+    end
+    
+    if not isHardcoded then
+        -- This is a JSON imported table
+        local tableIDLower = string.lower(tostring(tableID))
+        local isExcluded = string.find(tableIDLower, 'hooh') ~= nil or string.find(tableIDLower, 'tygerclaws') ~= nil
+        
+        if not isExcluded then
+            -- Spawn frame for JSON imported tables (excluding hooh and tygerclaws)
+            local frameEntID = TableManager.spawnTableEntity(tableID, 'roulette_spinner_frame', roulette_spinner_frame, spinnerCenterPos, spinnerOrientation, nil, {'[Roulette]'})
+            if frameEntID then
+                local tableSpecificName = tableID .. '_roulette_spinner_frame'
+                -- Remove any existing entry with this table-specific name
+                for i = #entRecords, 1, -1 do
+                    if entRecords[i].name == tableSpecificName then
+                        table.remove(entRecords, i)
+                    end
+                end
+                table.insert(entRecords, { name = tableSpecificName, id = frameEntID })
+                table.insert(historicalEntRecords, { name = tableSpecificName, id = frameEntID })
+            end
+        end
+    end
 
     -- Get player pile position
     local playerPilePos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_pile_position')
