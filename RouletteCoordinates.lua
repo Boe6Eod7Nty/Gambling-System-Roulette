@@ -24,9 +24,11 @@ function RouletteCoordinates.init()
     -- Hooh orientation is approximately 180° around Z, so local-space offset is approximately the inverse
     -- After testing, the correct local-space offset is: {0.96375, 0.11231, 0.98131358}
     -- This ensures: table_pos + (table_orientation * local_offset) = correct spinner position
+    -- IMPORTANT: Z offset correction (-0.063) applied here to prevent entity hovering for all tables.
+    -- hoohbar table gets +0.063 added to its position to cancel this correction (it's the "off" baseline table).
     RelativeCoordinateCalulator.registerOffset(
         'spinner_center_point',
-        Vector4.new(0.96375, 0.11231, 0.98131358, 0),  -- Local-space offset (will be rotated by table orientation)
+        Vector4.new(0.96375, 0.11231, 0.98131358 - 0.063, 0),  -- Local-space offset with Z correction (will be rotated by table orientation)
         Quaternion.new(0, 0, 0, 1)
     )
     
@@ -99,19 +101,26 @@ function RouletteCoordinates.init()
     )
     
     -- Register main tables
+    -- IMPORTANT Z-OFFSET CORRECTION:
+    -- The -0.063 Z offset correction is applied in the spinner_center_point offset (affects all tables).
+    -- hoohbar table is the "off" one, so we add +0.063 to its position to cancel the correction.
+    -- All other tables automatically get the correction through the spinner_center_point offset.
+    
     -- hoohbar table
+    -- EXCEPTION: This table is the "off" baseline table, so we add +0.063 to its Z position
+    -- to cancel the -0.063 correction that's built into spinner_center_point offset.
     -- Table position is the actual table mesh position in world coordinates
     -- OLD SpinnerCenterPoint: {x=-1045.09375, y=1345.21069, z=6.21331358}
     -- NEW table position should be where the table mesh actually is
     -- Based on migration, using the table position (not spinner center)
-    local hoohbarPosition = Vector4.new(-1044.130, 1345.323, 5.232, 1)
+    local hoohbarPosition = Vector4.new(-1044.130, 1345.323, 5.232 + 0.063, 1)
     local hoohbarOrientation = Quaternion.new(0.0, 0.0, -1.0, 0.002)
     RelativeCoordinateCalulator.registerTable('hoohbar', hoohbarPosition, hoohbarOrientation)
     
     -- tygerclawscasino table
     -- CORRECTED: Table position (not spinner center)
-    -- Z adjusted: -2.494 -> -2.557 to account for Z offset difference (needs 0.918 vs 0.981)
-    local tygerclawsPosition = Vector4.new(-64.694, -281.893, -2.557, 1)
+    -- Z offset correction is automatically applied via spinner_center_point offset
+    local tygerclawsPosition = Vector4.new(-64.694, -281.893, -2.494, 1)
     -- CORRECTED: Orientation as Quaternion (i, j, k, r)
     local tygerclawsOrientation = Quaternion.new(0.0, 0.0, 0.997, -0.080)
     RelativeCoordinateCalulator.registerTable('tygerclawscasino', tygerclawsPosition, tygerclawsOrientation)
@@ -120,6 +129,7 @@ function RouletteCoordinates.init()
     -- gunrunnersclub table
     local gunrunnersDependency = GetMod('Gambling System - Compatability - Gunrunnersclub')
     if gunrunnersDependency then
+        -- Z offset correction is automatically applied via spinner_center_point offset
         local gunrunnersPosition = Vector4.new(-2228.825, -2550.422, 81.209, 1)
         -- Convert tableRotation (-43.068 degrees) to Quaternion
         local gunrunnersOrientation = EulerAngles.new(0, 0, -43.068):ToQuat()
@@ -130,10 +140,18 @@ function RouletteCoordinates.init()
     -- If needed in the future, uncomment and add similar dependency check
 
     -- Load tables from JSON files in addons folder (after hardcoded tables)
+    -- IMPORTANT: All JSON-loaded tables automatically get the Z offset correction (-0.063)
+    -- applied via the spinner_center_point offset. hoohbar is the exception and has +0.063
+    -- added to its position to cancel the correction.
     local addonTables = JsonData.ReturnAllFromFolder("addons")
     for _, tableData in ipairs(addonTables) do
-        -- Convert position to Vector4
-        local position = Vector4.new(tableData.position.x, tableData.position.y, tableData.position.z, 1)
+        -- Convert position to Vector4 (Z offset correction is automatically applied via spinner_center_point offset)
+        local position = Vector4.new(
+            tableData.position.x,
+            tableData.position.y,
+            tableData.position.z,
+            1
+        )
         
         -- Create Quaternion directly from i, j, k, r components
         local quaternion = Quaternion.new(
