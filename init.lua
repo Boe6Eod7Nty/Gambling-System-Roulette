@@ -316,10 +316,19 @@ local callback40x = function()
 
 
     if showingHoloResult then
-        MoveEnt('holo_result_firstDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=holoDisplayAngle})
-        MoveEnt('holo_result_colorWord', {x=0, y=0, z=0.001}, {r=0, p=0, y=holoDisplayAngle})
-        if doubleDigitHoloResult then
-            MoveEnt('holo_result_secondDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=holoDisplayAngle})
+        -- Recalculate angle dynamically to ensure it's correct for the current table
+        local activeTableID = TableManager.GetActiveTable()
+        if activeTableID then
+            local holoPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'holographic_display_position')
+            local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'player_playing_position')
+            if holoPos and playerPos then
+                local currentHoloDisplayAngle = ( ( math.atan2(holoPos.y - playerPos.y, holoPos.x - playerPos.x) ) * 180 / math.pi ) - 45
+                MoveEnt('holo_result_firstDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
+                MoveEnt('holo_result_colorWord', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
+                if doubleDigitHoloResult then
+                    MoveEnt('holo_result_secondDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
+                end
+            end
         end
     end
 
@@ -364,6 +373,30 @@ local function RegisterRouletteSpot(tableID, mappinPos)
         disableDefaultUI = false, -- Explicitly set to false to ensure default UI shows
         callback_UIwithoutWorkspotTriggered = function()
             -- Handle joining the roulette table when player interacts
+            -- Check if we're switching tables (different from current active table)
+            local currentActiveTable = TableManager.GetActiveTable()
+            local isSwitchingTables = currentActiveTable and currentActiveTable ~= tableID
+            
+            -- If switching tables, clear bets from the previous table
+            if isSwitchingTables then
+                -- Clean up bet chip entities from previous table
+                local betsPiles = ChipBetPiles.GetBetsPiles()
+                for i, v in ipairs(currentBets) do
+                    local localPile = betsPiles[v.id]
+                    if localPile then
+                        for j, k in ipairs(localPile.stacksInfo) do
+                            DeRegisterEntity(k.stackDevName)
+                        end
+                    end
+                end
+                -- Clear bet data
+                ChipBetPiles.Clear()
+                currentBets = {}
+                previousBet = {}
+                previousBetAvailable = false
+                previousBetsCost = 0
+            end
+            
             -- Ensure table is initialized before joining (spawn spinner/ball if needed)
             if not TableManager.isTableLoaded(tableID) then
                 TableManager.setTableLoaded(tableID, true)
@@ -374,6 +407,27 @@ local function RegisterRouletteSpot(tableID, mappinPos)
                 local tableCenterPoint = TableManager.GetTableCenterPoint(tableID)
                 if tableCenterPoint then
                     RouletteAnimations.UpdateBallCenter(tableCenterPoint)
+                    -- Update chip positions for this table
+                    local boardOriginPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'table_board_origin')
+                    if boardOriginPos then
+                        -- Update local tableBoardOrigin
+                        if not tableBoardOrigin then
+                            tableBoardOrigin = {x=boardOriginPos.x, y=boardOriginPos.y, z=boardOriginPos.z}
+                        else
+                            tableBoardOrigin.x = boardOriginPos.x
+                            tableBoardOrigin.y = boardOriginPos.y
+                            tableBoardOrigin.z = boardOriginPos.z
+                        end
+                        -- Update chip modules with new board origin
+                        ChipUtils.UpdateTableBoardOrigin(tableBoardOrigin)
+                        ChipBetPiles.UpdateTableBoardOrigin(tableBoardOrigin)
+                    end
+                    -- Update player pile position
+                    local playerPilePos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'player_pile_position')
+                    if playerPilePos then
+                        local playerPile = ChipPlayerPile.GetPlayerPile()
+                        playerPile.location = {x=playerPilePos.x, y=playerPilePos.y, z=playerPilePos.z}
+                    end
                 else
                     -- Table was marked as loaded but center point not set, re-initialize
                     InitTable(tableID)
@@ -724,6 +778,8 @@ function InitTable(tableID)
     holographicDisplayPosition = {x=holoPos.x, y=holoPos.y, z=holoPos.z}
 
     -- Calculate angle from holographic display position to player position (ignoring Z coordinate)
+    -- This is already in world space since positions are world coordinates, so the angle is correct
+    -- The -45 offset is for the font orientation
     holoDisplayAngle = ( ( math.atan2(holographicDisplayPosition.y - playerPlayingPosition.y, holographicDisplayPosition.x - playerPlayingPosition.x) ) * 180 / math.pi ) - 45
     holoDisplayAngleRad = holoDisplayAngle * math.pi / 180
 
@@ -1009,6 +1065,27 @@ end
 
 function ShowHoloResult(number, color)
     showingHoloResult = true
+    
+    -- Recalculate angle dynamically to ensure it's correct for the current table
+    local activeTableID = TableManager.GetActiveTable()
+    if not activeTableID then
+        DualPrint('[==e ERROR: ShowHoloResult: No active table')
+        return
+    end
+    
+    -- Get current positions for the active table
+    local holoPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'holographic_display_position')
+    local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'player_playing_position')
+    if not holoPos or not playerPos then
+        DualPrint('[==e ERROR: ShowHoloResult: Failed to get positions for active table')
+        return
+    end
+    
+    -- Calculate angle from holographic display position to player position (in world space)
+    -- The -45 offset is for the font orientation
+    local currentHoloDisplayAngle = ( ( math.atan2(holoPos.y - playerPos.y, holoPos.x - playerPos.x) ) * 180 / math.pi ) - 45
+    local currentHoloDisplayAngleRad = currentHoloDisplayAngle * math.pi / 180
+    
     local kerning = 0.013845
     local doubleSpace = 0.03
     local numberWidth = 0.0758
@@ -1045,12 +1122,12 @@ function ShowHoloResult(number, color)
     end
 
 
-    local firstDigitRelativeX = ( firstDigitLinePos - widthMiddle ) * math.cos(holoDisplayAngleRad)
-    local firstDigitRelativeY = ( firstDigitLinePos - widthMiddle ) * math.sin(holoDisplayAngleRad)
-    local secondDigitRelativeX = ( secondDigitLinePos - widthMiddle ) * math.cos(holoDisplayAngleRad)
-    local secondDigitRelativeY = ( secondDigitLinePos - widthMiddle ) * math.sin(holoDisplayAngleRad)
-    local colorWordRelativeX = ( colorWordLinePos - widthMiddle ) * math.cos(holoDisplayAngleRad)
-    local colorWordRelativeY = ( colorWordLinePos - widthMiddle ) * math.sin(holoDisplayAngleRad)
+    local firstDigitRelativeX = ( firstDigitLinePos - widthMiddle ) * math.cos(currentHoloDisplayAngleRad)
+    local firstDigitRelativeY = ( firstDigitLinePos - widthMiddle ) * math.sin(currentHoloDisplayAngleRad)
+    local secondDigitRelativeX = ( secondDigitLinePos - widthMiddle ) * math.cos(currentHoloDisplayAngleRad)
+    local secondDigitRelativeY = ( secondDigitLinePos - widthMiddle ) * math.sin(currentHoloDisplayAngleRad)
+    local colorWordRelativeX = ( colorWordLinePos - widthMiddle ) * math.cos(currentHoloDisplayAngleRad)
+    local colorWordRelativeY = ( colorWordLinePos - widthMiddle ) * math.sin(currentHoloDisplayAngleRad)
 
     local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
     if not tableCenterPoint then
@@ -1081,10 +1158,13 @@ function ShowHoloResult(number, color)
         secondDigit = string.sub(numberString, 2, 2)
     end
 
-    RegisterEntity('holo_result_firstDigit', high_school_usa_font, firstDigit, {x=firstDigitPos.x, y=firstDigitPos.y, z=firstDigitPos.z})
-    RegisterEntity('holo_result_colorWord', high_school_usa_font, color, {x=colorWordPos.x, y=colorWordPos.y, z=colorWordPos.z})
+    -- Set initial orientation to face the player (accounting for table rotation)
+    local initialOrientation = {r=0, p=0, y=currentHoloDisplayAngle}
+
+    RegisterEntity('holo_result_firstDigit', high_school_usa_font, firstDigit, {x=firstDigitPos.x, y=firstDigitPos.y, z=firstDigitPos.z}, initialOrientation)
+    RegisterEntity('holo_result_colorWord', high_school_usa_font, color, {x=colorWordPos.x, y=colorWordPos.y, z=colorWordPos.z}, initialOrientation)
     if doubleDigitHoloResult then
-        RegisterEntity('holo_result_secondDigit', high_school_usa_font, secondDigit, {x=secondDigitPos.x, y=secondDigitPos.y, z=secondDigitPos.z})
+        RegisterEntity('holo_result_secondDigit', high_school_usa_font, secondDigit, {x=secondDigitPos.x, y=secondDigitPos.y, z=secondDigitPos.z}, initialOrientation)
     end
 
 
@@ -1436,7 +1516,18 @@ function SpawnWithCodeware(pathOrID, appName, locationTable, orientationTable, t
         newLocation = {x=tableCenterPoint.x, y=tableCenterPoint.y, z=tableCenterPoint.z}
     end
     entSpec.position = Vector4.new(newLocation.x, newLocation.y, newLocation.z, 1)
-    entSpec.orientation = playerTransform:GetOrientation()
+    if orientationTable then
+        -- orientationTable can be EulerAngles or a table with {r, p, y}
+        if type(orientationTable) == "table" and orientationTable.r then
+            entSpec.orientation = EulerAngles.new(orientationTable.r, orientationTable.p, orientationTable.y):ToQuat()
+        elseif type(orientationTable) == "userdata" and orientationTable.ToQuat then
+            entSpec.orientation = orientationTable:ToQuat()
+        else
+            entSpec.orientation = playerTransform:GetOrientation()
+        end
+    else
+        entSpec.orientation = playerTransform:GetOrientation()
+    end
     entSpec.alwaysSpawned = true
     entSpec.spawnInView = true
     entSpec.active = true
