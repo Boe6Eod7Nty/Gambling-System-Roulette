@@ -57,6 +57,7 @@ local RelativeCoordinateCalulator = require('RelativeCoordinateCalulator.lua')
 local RouletteCoordinates = require('RouletteCoordinates.lua')
 local TableManager = require('TableManager.lua')
 local SpotManager = require("SpotManager.lua")
+local EntityManager = require("EntityManager.lua")
 
 
 --'global' variables (uncategorized)
@@ -67,10 +68,6 @@ local chipRotation = 315 -- defines how the player stack hex grid is aligned
 inRouletteTable = false --enables and disabled joinUI prompting
 local inMenu = true --libaries requirement
 local inGame = false
-local entRecords = {} -- global live entity record
--- { name = devName, id = id }  --table format
--- entRecords[1].id             --reference format
-local historicalEntRecords = {} --never deleted entRecords copy, used for despawn error correction.
 local gameLoadDelayCount = 0
 local tableLoadDistance = 20
 local tableUnloadDistance = 100
@@ -323,10 +320,10 @@ local callback40x = function()
             local playerPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(activeTableID, 'player_playing_position')
             if holoPos and playerPos then
                 local currentHoloDisplayAngle = ( ( math.atan2(holoPos.y - playerPos.y, holoPos.x - playerPos.x) ) * 180 / math.pi ) - 45
-                MoveEnt('holo_result_firstDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
-                MoveEnt('holo_result_colorWord', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
+                EntityManager.MoveEnt('holo_result_firstDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
+                EntityManager.MoveEnt('holo_result_colorWord', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
                 if doubleDigitHoloResult then
-                    MoveEnt('holo_result_secondDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
+                    EntityManager.MoveEnt('holo_result_secondDigit', {x=0, y=0, z=0.001}, {r=0, p=0, y=currentHoloDisplayAngle})
                 end
             end
         end
@@ -385,7 +382,7 @@ local function RegisterRouletteSpot(tableID, mappinPos)
                     local localPile = betsPiles[v.id]
                     if localPile then
                         for j, k in ipairs(localPile.stacksInfo) do
-                            DeRegisterEntity(k.stackDevName)
+                            EntityManager.DeRegisterEntity(k.stackDevName)
                         end
                     end
                 end
@@ -506,7 +503,14 @@ end
 registerForEvent( "onInit", function() --runs on file load
 	GameLocale.Initialize()
     interactionUI.init()
-    RegisterEntity('chips0', chip_broken, 'default') --insert index 1 dummy into entRecords to catch nil errors
+    
+    -- Initialize EntityManager
+    EntityManager.Initialize({
+        TableManager = TableManager,
+        DualPrint = DualPrint
+    })
+    
+    EntityManager.RegisterEntity('chips0', chip_broken, 'default') --insert index 1 dummy into entRecords to catch nil errors
     Cron.Every(0.025, callback40x)
     
     -- Initialize roulette coordinates FIRST (registers tables and offsets)
@@ -523,10 +527,10 @@ registerForEvent( "onInit", function() --runs on file load
         chipHeight = chipHeight,
         chip_values = chip_values,
         chip_colors = chip_colors,
-        RegisterEntity = RegisterEntity,
-        DeRegisterEntity = DeRegisterEntity,
-        FindEntIdByName = FindEntIdByName,
-        SetRotateEnt = SetRotateEnt,
+        RegisterEntity = EntityManager.RegisterEntity,
+        DeRegisterEntity = EntityManager.DeRegisterEntity,
+        FindEntIdByName = EntityManager.FindEntIdByName,
+        SetRotateEnt = EntityManager.SetRotateEnt,
         MapVar = MapVar,
         DualPrint = DualPrint
     })
@@ -537,10 +541,10 @@ registerForEvent( "onInit", function() --runs on file load
         chip_colors = chip_colors,
         chipHeight = chipHeight,
         tableBoardOrigin = tableBoardOrigin,
-        RegisterEntity = RegisterEntity,
-        DeRegisterEntity = DeRegisterEntity,
-        FindEntIdByName = FindEntIdByName,
-        SetRotateEnt = SetRotateEnt,
+        RegisterEntity = EntityManager.RegisterEntity,
+        DeRegisterEntity = EntityManager.DeRegisterEntity,
+        FindEntIdByName = EntityManager.FindEntIdByName,
+        SetRotateEnt = EntityManager.SetRotateEnt,
         DualPrint = DualPrint,
         RouletteMainMenu = RouletteMainMenu,
         poker_chip = poker_chip
@@ -552,10 +556,10 @@ registerForEvent( "onInit", function() --runs on file load
         chip_colors = chip_colors,
         chipHeight = chipHeight,
         chipRotation = chipRotation,
-        RegisterEntity = RegisterEntity,
-        DeRegisterEntity = DeRegisterEntity,
-        FindEntIdByName = FindEntIdByName,
-        SetRotateEnt = SetRotateEnt,
+        RegisterEntity = EntityManager.RegisterEntity,
+        DeRegisterEntity = EntityManager.DeRegisterEntity,
+        FindEntIdByName = EntityManager.FindEntIdByName,
+        SetRotateEnt = EntityManager.SetRotateEnt,
         DualPrint = DualPrint,
         poker_chip = poker_chip
     })
@@ -564,8 +568,8 @@ registerForEvent( "onInit", function() --runs on file load
     -- Note: spin_results is updated via a callback function
     -- tableCenterPoint is now managed by TableManager and will be set when InitTable() is called
     RouletteAnimations.Initialize({
-        SetRotateEnt = SetRotateEnt,
-        FindEntIdByName = FindEntIdByName,
+        SetRotateEnt = EntityManager.SetRotateEnt,
+        FindEntIdByName = EntityManager.FindEntIdByName,
         ProcessSpinResult = ProcessSpinResult,
         GetPlayer = GetPlayer,
         DualPrint = DualPrint,
@@ -728,24 +732,14 @@ function InitTable(tableID)
     if spinnerEntID then
         local tableSpecificName = tableID .. '_roulette_spinner'
         -- Remove any existing entry with this table-specific name
-        for i = #entRecords, 1, -1 do
-            if entRecords[i].name == tableSpecificName then
-                table.remove(entRecords, i)
-            end
-        end
-        table.insert(entRecords, { name = tableSpecificName, id = spinnerEntID })
-        table.insert(historicalEntRecords, { name = tableSpecificName, id = spinnerEntID })
+        EntityManager.RemoveFromRecords(tableSpecificName)
+        EntityManager.AddToRecords(tableSpecificName, spinnerEntID)
     end
     if ballEntID then
         local tableSpecificName = tableID .. '_roulette_ball'
         -- Remove any existing entry with this table-specific name
-        for i = #entRecords, 1, -1 do
-            if entRecords[i].name == tableSpecificName then
-                table.remove(entRecords, i)
-            end
-        end
-        table.insert(entRecords, { name = tableSpecificName, id = ballEntID })
-        table.insert(historicalEntRecords, { name = tableSpecificName, id = ballEntID })
+        EntityManager.RemoveFromRecords(tableSpecificName)
+        EntityManager.AddToRecords(tableSpecificName, ballEntID)
     end
     
     -- Check if JSON imported table (spawn frame for JSON tables, excluding hooh and tygerclaws)
@@ -769,13 +763,8 @@ function InitTable(tableID)
             if frameEntID then
                 local tableSpecificName = tableID .. '_roulette_spinner_frame'
                 -- Remove any existing entry with this table-specific name
-                for i = #entRecords, 1, -1 do
-                    if entRecords[i].name == tableSpecificName then
-                        table.remove(entRecords, i)
-                    end
-                end
-                table.insert(entRecords, { name = tableSpecificName, id = frameEntID })
-                table.insert(historicalEntRecords, { name = tableSpecificName, id = frameEntID })
+                EntityManager.RemoveFromRecords(tableSpecificName)
+                EntityManager.AddToRecords(tableSpecificName, frameEntID)
             end
         end
     end
@@ -833,17 +822,7 @@ function DespawnTable() --despawns ents and resets script variables
             activeTableID .. '_roulette_ball'
         }
         for _, devName in ipairs(tableSpecificNames) do
-            local foundMatch = 1
-            while foundMatch > 0 do
-                foundMatch = 0
-                for i = #entRecords, 1, -1 do
-                    if entRecords[i].name == devName then
-                        table.remove(entRecords, i)
-                        foundMatch = 1
-                        break
-                    end
-                end
-            end
+            EntityManager.RemoveFromRecords(devName)
         end
     end
     
@@ -859,7 +838,7 @@ function DespawnTable() --despawns ents and resets script variables
         local localPile = betsPiles[v.id]
         if localPile then
             for j, k in ipairs(localPile.stacksInfo) do
-                DeRegisterEntity(k.stackDevName)
+                EntityManager.DeRegisterEntity(k.stackDevName)
             end
         end
     end
@@ -906,177 +885,15 @@ function DespawnTable() --despawns ents and resets script variables
     end
     Cron.After(0.2, callbackResetVariables)
 
-    ForceClearAllEnts() --force clear all entities via historicalEntRecords table, in case of despawn bets error/bug
+    EntityManager.ForceClearAllEnts() --force clear all entities via historicalEntRecords table, in case of despawn bets error/bug
 end
 
-function RegisterEntity(devName, entSrc, appName, location, orientation, tags) -- create entity and add to local system, pass location as table = {x=0,y=0,z=0}
-    for i,v in ipairs(entRecords) do --check if entity already exists
-        if v.name == devName then --if exists, exit function
-            do return end
-        end
-    end
-    local newTags = {"[Boe6]","[Gambling System]","[Roulette]"}
-    if tags then
-        for i,v in ipairs(tags) do
-            table.insert(newTags, v)
-        end
-    end
-    local id = SpawnWithCodeware(entSrc, appName, location, orientation, newTags) --create entity
-    table.insert(entRecords, { name = devName, id = id }) -- save entity id to entRecords w/ a devName
-    table.insert(historicalEntRecords, { name = devName, id = id }) --save copy to historicalEntRecords, for error handling
-end
-
-function DeRegisterEntity(devName) -- delete and remove entity from local system
-    --DualPrint('[==q Ran DeRegisterEntity(), devName: '..devName)
-
-    local entID = FindEntIdByName(devName)
-    if not entID then
-        -- Entity ID not found, just clean up entRecords
-        local foundMatch = 1
-        while foundMatch > 0 do
-            foundMatch = 1
-            for i,v in ipairs(entRecords) do
-                if v.name == devName then
-                    table.remove(entRecords, i)
-                    foundMatch = 2
-                    break
-                end
-            end
-            if foundMatch == 1 then
-                foundMatch = 0
-            end
-        end
-        return
-    end
-    local entity = Game.FindEntityByID(entID)
-    if entity == nil then
-        --DualPrint('=q entity is nil')
-        -- Remove from entRecords even if entity is nil
-        local foundMatch = 1
-        while foundMatch > 0 do
-            foundMatch = 1
-            for i,v in ipairs(entRecords) do
-                if v.name == devName then
-                    table.remove(entRecords, i)
-                    foundMatch = 2
-                    break
-                end
-            end
-            if foundMatch == 1 then
-                foundMatch = 0
-            end
-        end
-        return
-    end
-    local currentPos = entity:GetWorldPosition()
-    --DualPrint('=q entity pos pre  x: '..currentPos.x..' y: '..currentPos.y..' z: '..currentPos.z)
-    Despawn(entID) -- Use the entID we already retrieved
-
-    local foundMatch = 1
-    while foundMatch > 0 do
-        foundMatch = 1
-        for i,v in ipairs(entRecords) do --find matching devName in entRecords & add index to 'indicesToRemove' table
-            if v.name == devName then
-                table.remove(entRecords, i)
-                --DualPrint('=q Removed devName: '..devName..' from entRecords')
-                foundMatch = 2
-                break
-            end
-        end
-        if foundMatch == 1 then
-            foundMatch = 0
-        end
-    end
-end
-
-function FindEntIdByName(devName, entList) -- find devName in entRecords and return id
-    -- First, check TableManager for table-specific entities (roulette_spinner, roulette_ball, roulette_spinner_frame)
-    -- These entities are tracked per table, so we need to get the active table's entity
-    local tableSpecificEntities = {'roulette_spinner', 'roulette_ball', 'roulette_spinner_frame'}
-    local isTableSpecific = false
-    for _, name in ipairs(tableSpecificEntities) do
-        if devName == name then
-            isTableSpecific = true
-            break
-        end
-    end
-    
-    if isTableSpecific then
-        local activeTableID = TableManager.GetActiveTable()
-        if activeTableID then
-            local entID = TableManager.getTableEntity(activeTableID, devName)
-            if entID then
-                return entID
-            end
-        end
-        -- If no active table or entity not found in TableManager, fall through to entRecords
-    end
-    
-    -- For non-table-specific entities, check entRecords
-    local indicies = {}
-    for i,v in ipairs(entRecords) do --find all matches
-        if v.name == devName then
-            table.insert(indicies, i)
-        end
-    end
-    for i,v in ipairs(indicies) do
-        return entRecords[v].id --returns first match
-    end
-    --in case no matches, return chips0
-    for i,v in ipairs(entRecords) do
-        if v.name == 'chips0' then
-            -- DualPrint('=G FindEntityByID() minor error, code 3098')
-                --suppressed due to user confusion.
-                --TODO: print v.name to look into cause
-            return v.id
-        end
-    end
-    -- Return nil if no entity found (instead of chips0 which may not exist)
-    return nil
-end
-
-function MoveEnt(idName, xyz, rpy) --move entity by xyz realative to current position
-    if not xyz then xyz = {x=0, y=0, z=0} return end --set default value
-
-    local entID = FindEntIdByName(idName)
-    if not entID then return end -- Check for nil entity ID before calling FindEntityByID
-    local entity = Game.FindEntityByID(entID)
-    if entity == nil then return end
-    local currentRot = entity:GetWorldOrientation()
-    local currentPos = entity:GetWorldPosition()
-    local newPos = Vector4.new(currentPos.x + xyz.x, currentPos.y + xyz.y, currentPos.z + xyz.z, currentPos.w)
-    local localRPY = {r=0, p=0, y=0}
-    if rpy then
-        localRPY = {r=rpy.r, p=rpy.p, y=rpy.y}
-    end
-    Game.GetTeleportationFacility():Teleport(entity, newPos, EulerAngles.new(localRPY.r, localRPY.p, localRPY.y))
-end
-
-function SetRotateEnt(idName, rpy) --teleport an entity to specified rotation at the same location
-    if not rpy then rpy = {r=0, p=0, y=0} return end --set default value
-
-    local entID = FindEntIdByName(idName)
-    if not entID then return end -- Check for nil entity ID before calling FindEntityByID
-    local entity = Game.FindEntityByID(entID)
-    if entity == nil then return end
-    local currentPos = entity:GetWorldPosition()
-    local newRot = EulerAngles.new(rpy.r, rpy.p, rpy.y)
-    Game.GetTeleportationFacility():Teleport(entity, currentPos, newRot)
-end
+-- Entity management functions moved to EntityManager.lua
 
 function DualPrint(string) --prints to both CET console and local .log file
     if not string then return end
     print('[Gambling System] ' .. string)
     spdlog.error('[Gambling System] ' .. string)
-end
-
-function ForceClearAllEnts()
-    for i,v in ipairs(historicalEntRecords) do
-        -- i = { name = devName, id = id }
-        if v.name ~= 'chips0' then
-            Despawn(v.id)
-        end
-    end
 end
 
 function ShowHoloResult(number, color)
@@ -1177,19 +994,19 @@ function ShowHoloResult(number, color)
     -- Set initial orientation to face the player (accounting for table rotation)
     local initialOrientation = {r=0, p=0, y=currentHoloDisplayAngle}
 
-    RegisterEntity('holo_result_firstDigit', high_school_usa_font, firstDigit, {x=firstDigitPos.x, y=firstDigitPos.y, z=firstDigitPos.z}, initialOrientation)
-    RegisterEntity('holo_result_colorWord', high_school_usa_font, color, {x=colorWordPos.x, y=colorWordPos.y, z=colorWordPos.z}, initialOrientation)
+    EntityManager.RegisterEntity('holo_result_firstDigit', high_school_usa_font, firstDigit, {x=firstDigitPos.x, y=firstDigitPos.y, z=firstDigitPos.z}, initialOrientation)
+    EntityManager.RegisterEntity('holo_result_colorWord', high_school_usa_font, color, {x=colorWordPos.x, y=colorWordPos.y, z=colorWordPos.z}, initialOrientation)
     if doubleDigitHoloResult then
-        RegisterEntity('holo_result_secondDigit', high_school_usa_font, secondDigit, {x=secondDigitPos.x, y=secondDigitPos.y, z=secondDigitPos.z}, initialOrientation)
+        EntityManager.RegisterEntity('holo_result_secondDigit', high_school_usa_font, secondDigit, {x=secondDigitPos.x, y=secondDigitPos.y, z=secondDigitPos.z}, initialOrientation)
     end
 
 
     local callback = function()
         showingHoloResult = false
-        DeRegisterEntity('holo_result_firstDigit')
-        DeRegisterEntity('holo_result_colorWord')
+        EntityManager.DeRegisterEntity('holo_result_firstDigit')
+        EntityManager.DeRegisterEntity('holo_result_colorWord')
         if doubleDigitHoloResult then
-            DeRegisterEntity('holo_result_secondDigit')
+            EntityManager.DeRegisterEntity('holo_result_secondDigit')
         end
     end
     Cron.After(5, callback)
@@ -1398,7 +1215,7 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
         if betsPile and betsPile.stacksInfo and betsPile.stacksInfo[1] then
             local entDevName = betsPile.stacksInfo[1].stackDevName
             --get ent location position
-            local entID = FindEntIdByName(entDevName)
+            local entID = EntityManager.FindEntIdByName(entDevName)
             if not entID then
                 DualPrint('[==e ERROR: Could not find entity ID for '..entDevName..' for winner bet '..v)
             else
@@ -1407,7 +1224,7 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
                     local pos = entity:GetWorldPosition()
                     local holoDevName = entDevName..'_holo'
                     table.insert(holoEnts, holoDevName)
-                    RegisterEntity(holoDevName, chip_stacks, 'default', {x=pos.x,y=pos.y,z=pos.z-0.02})
+                    EntityManager.RegisterEntity(holoDevName, chip_stacks, 'default', {x=pos.x,y=pos.y,z=pos.z-0.02})
                 else
                     DualPrint('[==e ERROR: Could not find entity '..entDevName..' for winner bet '..v)
                 end
@@ -1444,7 +1261,7 @@ function ProcessSpinResult(resultIndex) --takes resultIndex for roulette_slots (
     Cron.After(5, callback5)
     local callback6 = function()
         for i, v in ipairs(holoEnts) do
-            DeRegisterEntity(v)
+            EntityManager.DeRegisterEntity(v)
         end
     end
     Cron.After(6, callback6)
@@ -1504,59 +1321,7 @@ end
 
 -- UI functions moved to RouletteMainMenu.lua
 
-function SpawnWithCodeware(pathOrID, appName, locationTable, orientationTable, tags) --spawns an entity with codeware
-    -- original function code by anygoodname
-    --todo: update this to codeware's newer static entity system (I probably wont until my next(c) project lol)
-    if not Codeware then return end
-    local entitySystem = Game.GetDynamicEntitySystem()
-    if not entitySystem then return end
-    if type(pathOrID) ~= 'string' then return end
-    if not IsStringValid(pathOrID) then return end
-    local isRecord, isValid = false, false
-    if TweakDB:GetRecord(pathOrID) then isRecord = true isValid = true end
-    if (not isRecord) and string.match(pathOrID, '%.ent$') then isValid = true end
-    if not isValid then return end
-    local entSpec = DynamicEntitySpec.new()
-    if isRecord then entSpec.recordID = pathOrID else entSpec.templatePath = pathOrID end
-    if type(appName) == 'string' then entSpec.appearanceName = appName end
-    local playerTransform = Game.GetPlayer():GetWorldTransform()
-    local newLocation = {}
-    if locationTable then
-        newLocation = {x=locationTable.x, y=locationTable.y, z=locationTable.z}
-    else
-        local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
-        if not tableCenterPoint then
-            DualPrint('[==e ERROR: SpawnWithCodeware: tableCenterPoint not available for active table')
-            return
-        end
-        newLocation = {x=tableCenterPoint.x, y=tableCenterPoint.y, z=tableCenterPoint.z}
-    end
-    entSpec.position = Vector4.new(newLocation.x, newLocation.y, newLocation.z, 1)
-    if orientationTable then
-        -- orientationTable can be EulerAngles or a table with {r, p, y}
-        if type(orientationTable) == "table" and orientationTable.r then
-            entSpec.orientation = EulerAngles.new(orientationTable.r, orientationTable.p, orientationTable.y):ToQuat()
-        elseif type(orientationTable) == "userdata" and orientationTable.ToQuat then
-            entSpec.orientation = orientationTable:ToQuat()
-        else
-            entSpec.orientation = playerTransform:GetOrientation()
-        end
-    else
-        entSpec.orientation = playerTransform:GetOrientation()
-    end
-    entSpec.alwaysSpawned = true
-    entSpec.spawnInView = true
-    entSpec.active = true
-    if type(tags) == 'table' then entSpec.tags = tags end
-    --DualPrint('[-- Spawning with Codeware; ent: '..string.sub(pathOrID,31,string.len(pathOrID))..', appearance: '..appName..', x: '..entSpec.position.x..', y: '..entSpec.position.y..', z: '..entSpec.position.z)
-    return entitySystem:CreateEntity(entSpec)
-end
-
-function Despawn(id) --despawns a codeware entity from id
-    --original function code by anygoodname
-    if not id then return end
-    if Codeware then Game.GetDynamicEntitySystem():DeleteEntity(id) return end
-end
+-- SpawnWithCodeware and Despawn moved to EntityManager.lua
 
 --Script Initialized
 --==================
