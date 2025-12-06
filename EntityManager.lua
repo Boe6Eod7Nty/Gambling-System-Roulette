@@ -17,12 +17,10 @@ local historicalEntRecords = {} --never deleted entRecords copy, used for despaw
 
 -- Private dependencies (set via Initialize)
 local TableManager = nil
-local DualPrint = nil
 
 -- Initialize function
 function EntityManager.Initialize(deps)
     TableManager = deps.TableManager
-    DualPrint = deps.DualPrint
 end
 
 -- Record management functions (for InitTable integration)
@@ -87,9 +85,7 @@ function EntityManager.SpawnWithCodeware(pathOrID, appName, locationTable, orien
     else
         local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
         if not tableCenterPoint then
-            if DualPrint then
-                DualPrint('[==e ERROR: SpawnWithCodeware: tableCenterPoint not available for active table')
-            end
+            DualPrint('[==e ERROR: SpawnWithCodeware: tableCenterPoint not available for active table')
             return
         end
         newLocation = {x=tableCenterPoint.x, y=tableCenterPoint.y, z=tableCenterPoint.z}

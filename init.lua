@@ -506,8 +506,7 @@ registerForEvent( "onInit", function() --runs on file load
     
     -- Initialize EntityManager
     EntityManager.Initialize({
-        TableManager = TableManager,
-        DualPrint = DualPrint
+        TableManager = TableManager
     })
     
     EntityManager.RegisterEntity('chips0', chip_broken, 'default') --insert index 1 dummy into entRecords to catch nil errors
