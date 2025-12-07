@@ -44,4 +44,8 @@ return {
     ["Bet Street"] = "Bet Street",
     ["Bet Corner"] = "Bet Corner",
     ["Bet Line"] = "Bet Line",
+    ["Street"] = "Street",
+    ["Corner"] = "Corner",
+    ["Line"] = "Line",
+    ["Blackjack"] = "Blackjack",
 }
