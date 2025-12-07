@@ -523,9 +523,9 @@ function TableManager.loadTableIfNearby(tableID, distance, playerPosition)
     -- Calculate distance (2D distance, ignoring Z)
     local dx = playerPosition.x - tableCenterPos.x
     local dy = playerPosition.y - tableCenterPos.y
-    local distanceToTable = math.sqrt(dx * dx + dy * dy)
+    local distanceSquared = dx * dx + dy * dy
     
-    if distanceToTable < distance then
+    if distanceSquared < (distance * distance) then
         -- NOTE: Do NOT set tableLoaded here - that should be done by the caller after InitTable is called
         return true
     end
@@ -569,9 +569,9 @@ function TableManager.unloadTableIfFar(tableID, distance, playerPosition)
     -- Calculate distance (2D distance, ignoring Z)
     local dx = playerPosition.x - tableCenterPos.x
     local dy = playerPosition.y - tableCenterPos.y
-    local distanceToTable = math.sqrt(dx * dx + dy * dy)
+    local distanceSquared = dx * dx + dy * dy
     
-    if distanceToTable > distance then
+    if distanceSquared > (distance * distance) then
         TableManager.tableLoaded[tableID] = false
         -- Clean up entities when unloading
         TableManager.cleanupTableEntities(tableID)

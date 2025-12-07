@@ -336,16 +336,22 @@ function ChipUtils.CheckEmptyAndShift(localPile, hexCoords, stackCount) --from a
             {x=hexCoords.x-1, y=hexCoords.y-1, z=hexCoords.z},
             {x=hexCoords.x, y=hexCoords.y-1, z=hexCoords.z}
         }
-        local nearestNeighbor = 999
+        local nearestNeighborSquared = 999 * 999
         for i,v in pairs(neighborsTable) do --find shortest distance
-            local distance = math.sqrt(math.pow(averagePileLocation.x - v.x, 2) + math.pow(averagePileLocation.y - v.y, 2) + math.pow(averagePileLocation.z - v.z, 2))
-            if nearestNeighbor > distance then
-                nearestNeighbor = distance
+            local dx = averagePileLocation.x - v.x
+            local dy = averagePileLocation.y - v.y
+            local dz = averagePileLocation.z - v.z
+            local distanceSquared = dx * dx + dy * dy + dz * dz
+            if nearestNeighborSquared > distanceSquared then
+                nearestNeighborSquared = distanceSquared
             end
         end
         for i,v in pairs(neighborsTable) do --return shortest distance
-            local distance = math.sqrt(math.pow(averagePileLocation.x - v.x, 2) + math.pow(averagePileLocation.y - v.y, 2) + math.pow(averagePileLocation.z - v.z, 2))
-            if distance == nearestNeighbor then
+            local dx = averagePileLocation.x - v.x
+            local dy = averagePileLocation.y - v.y
+            local dz = averagePileLocation.z - v.z
+            local distanceSquared = dx * dx + dy * dy + dz * dz
+            if distanceSquared == nearestNeighborSquared then
                 return {{x=v.x, y=v.y, z=v.z}, false}
             end
         end
