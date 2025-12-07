@@ -72,6 +72,10 @@ local gameLoadDelayCount = 0
 local tableLoadDistance = 20
 local tableUnloadDistance = 100
 local chipHeight = 0.0035
+-- Cached player position (updated 2-3 times per second for performance)
+local cachedPlayerPosition = nil
+local cachedPlayerPositionUpdateCounter = 0
+local PLAYER_POSITION_UPDATE_INTERVAL = 15 -- Update every 15 callbacks (~2.67 times per second at 40 callbacks/sec)
 local userState = { --used by GameSession.lua
     consoleUses = 0 -- Initial state
 }
@@ -263,16 +267,28 @@ local callback40x = function()
         --idk if these need to be set but better safe than sorry. Loading bugs are hard to pinpoint.
         inRouletteTable = false
     end
-    if gameLoadDelayCount >= gameLoadDelayTime then --checks if area is loaded, and if the game has been running.
-        local playerPosition = GetPlayer():GetWorldPosition()
-        
+    
+    -- Update cached player position 2-3 times per second (every 15 callbacks)
+    cachedPlayerPositionUpdateCounter = cachedPlayerPositionUpdateCounter + 1
+    local playerPositionUpdated = false
+    if cachedPlayerPositionUpdateCounter >= PLAYER_POSITION_UPDATE_INTERVAL then
+        local player = GetPlayer()
+        if player then
+            cachedPlayerPosition = player:GetWorldPosition()
+            cachedPlayerPositionUpdateCounter = 0
+            playerPositionUpdated = true
+        end
+    end
+    
+    -- Only check table loading/unloading when player position updates (2-3 times per second)
+    if playerPositionUpdated and gameLoadDelayCount >= gameLoadDelayTime then
         -- Check all registered tables for nearby loading
         local tablesChecked = 0
         local tablesInitialized = 0
         for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
             tablesChecked = tablesChecked + 1
             
-            local isNearby = TableManager.loadTableIfNearby(tableID, tableLoadDistance, playerPosition)
+            local isNearby = TableManager.loadTableIfNearby(tableID, tableLoadDistance, cachedPlayerPosition)
             
             if isNearby then
                 local isLoaded = TableManager.isTableLoaded(tableID)
@@ -295,12 +311,13 @@ local callback40x = function()
             DualPrint('[==e ERROR: No registered tables found! RelativeCoordinateCalulator.registeredTables is empty.')
         end
     end
-    if areaInitialized then
+    
+    -- Check if player moved too far from active table (only when position updates)
+    if playerPositionUpdated and areaInitialized then
         local activeTableID = TableManager.GetActiveTable()
         if activeTableID then
-            local playerPosition = GetPlayer():GetWorldPosition()
             -- Check if player moved too far from active table
-            if TableManager.unloadTableIfFar(activeTableID, tableUnloadDistance, playerPosition) then
+            if TableManager.unloadTableIfFar(activeTableID, tableUnloadDistance, cachedPlayerPosition) then
                 DespawnTable()
             end
         end
@@ -586,9 +603,18 @@ registerForEvent( "onInit", function() --runs on file load
     inGame = false
     GameUI.OnSessionStart(function()
         inGame = true
+        -- Initialize cached player position on session start
+        local player = GetPlayer()
+        if player then
+            cachedPlayerPosition = player:GetWorldPosition()
+            cachedPlayerPositionUpdateCounter = 0
+        end
     end)
     GameUI.OnSessionEnd(function()
         inGame = false
+        -- Reset cached player position on session end
+        cachedPlayerPosition = nil
+        cachedPlayerPositionUpdateCounter = 0
     end)
     inGame = not GameUI.IsDetached() -- Required to check if ingame after reloading all mods
 
@@ -856,6 +882,7 @@ function DespawnTable() --despawns ents and resets script variables
         RouletteAnimations.Reset()
         gameLoadDelayCount = 0
         cronCount = 0
+        cachedPlayerPositionUpdateCounter = 0
         currentBets = {}
         previousBet = {}
         previousBetsCost = 0
