@@ -3,6 +3,7 @@ SpotManager = {
     spots = {},
     activeCam = nil,
     forcedCam = false,
+    activeSpotID = nil, -- Tracks which spot the player is currently in (nil = not in any spot)
     -- Performance optimization variables
     uiUpdateTimer = nil,
     playerCacheTimer = nil,
@@ -258,9 +259,9 @@ local function interactionUIUpdate(spotTable)
         return
     end
 
-    -- Skip all UI looking direction updates if player is already playing at the table
-    -- Looking direction checks should only apply to the "Join Table" prompt
-    if inRouletteTable then
+    -- Skip all UI looking direction updates if player is already in a spot
+    -- Looking direction checks should only apply to the "Join" prompt
+    if SpotManager.IsPlayerInSpot() then
         return
     end
 
@@ -513,6 +514,29 @@ function SpotManager.spotCoordsToWorldVector(spotID, xyz, rpy)
     local spotDirection = spot.spotObject.spot_orientation  --EulerAngles.new()
 
     --wip
+end
+
+---Set the player as being in a spot
+---@param spotID string|nil The spot ID the player is entering, or nil to clear
+function SpotManager.SetPlayerInSpot(spotID)
+    SpotManager.activeSpotID = spotID
+end
+
+---Check if the player is currently in any spot
+---@return boolean True if player is in a spot, false otherwise
+function SpotManager.IsPlayerInSpot()
+    return SpotManager.activeSpotID ~= nil
+end
+
+---Get the ID of the spot the player is currently in
+---@return string|nil The active spot ID, or nil if not in any spot
+function SpotManager.GetActiveSpotID()
+    return SpotManager.activeSpotID
+end
+
+---Clear the player from the current spot (same as SetPlayerInSpot(nil))
+function SpotManager.ClearPlayerInSpot()
+    SpotManager.activeSpotID = nil
 end
 
 return SpotManager

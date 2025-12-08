@@ -171,10 +171,10 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
                 StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoMovement") -- Enable player movement
                 StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCombat")
                 previousBetAvailable = false
-                inRouletteTable = false
+                SpotManager.ClearPlayerInSpot()
                 
                 -- SpotManager callbacks will automatically show the join UI again
-                -- when the player re-enters the interaction range, since inRouletteTable is false
+                -- when the player re-enters the interaction range, since player is no longer in a spot
             end
         end
     }

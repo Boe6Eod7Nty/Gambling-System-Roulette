@@ -65,7 +65,6 @@ local EntityManager = require("EntityManager.lua")
 local areaInitialized = false --defines if a roulette table is currently loaded
 local cronCount = 0
 local chipRotation = 315 -- defines how the player stack hex grid is aligned
-inRouletteTable = false --enables and disabled joinUI prompting
 local inMenu = true --libaries requirement
 local inGame = false
 local gameLoadDelayCount = 0
@@ -265,7 +264,7 @@ local callback40x = function()
         StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoMovement") -- Enable player movement
         StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCombat")
         --idk if these need to be set but better safe than sorry. Loading bugs are hard to pinpoint.
-        inRouletteTable = false
+        SpotManager.ClearPlayerInSpot()
     end
     
     -- Update cached player position 2-3 times per second (every 15 callbacks)
@@ -479,7 +478,7 @@ local function RegisterRouletteSpot(tableID, mappinPos)
             end
             
             RouletteMainMenu.MainMenuUI()
-            inRouletteTable = true
+            SpotManager.SetPlayerInSpot(tableID)
         end,
         animation_defaultEnterTime = 0,
         callback_OnSpotEnterAfterAnimationDelayTime = 0,
@@ -508,10 +507,9 @@ local function RegisterRouletteSpot(tableID, mappinPos)
         camera_showElectroshockEffect = false
     }
 
-    -- Hide mappin when player is in a roulette table
-    -- Access the global inRouletteTable variable directly (it's declared as global, not local)
+    -- Hide mappin when player is in a spot
     spotObj.mappin_extraVisibilityCheck = function()
-        return not inRouletteTable
+        return not SpotManager.IsPlayerInSpot()
     end
 
     SpotManager.AddSpot(spotObj)
@@ -878,7 +876,7 @@ function DespawnTable() --despawns ents and resets script variables
         ChipPlayerPile.Clear()
         ChipBetPiles.Clear()
         previousBetAvailable = false
-        inRouletteTable = false
+        SpotManager.ClearPlayerInSpot()
         RouletteAnimations.Reset()
         gameLoadDelayCount = 0
         cronCount = 0
