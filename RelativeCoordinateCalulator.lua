@@ -1,5 +1,5 @@
 RelativeCoordinateCalulator = {
-    version = '1.0.0',
+    version = '1.0.1',
     registeredTables = {},
     registeredOffsets = {},
 }
@@ -140,7 +140,11 @@ function RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, offset
     
     local offset = RelativeCoordinateCalulator.registeredOffsets[offsetID]
     if not offset then
-        DualPrint('[==e ERROR: Offset '..tostring(offsetID)..' not found in registeredOffsets')
+        -- spinner_center_point is optional (only needed for roulette, not blackjack)
+        -- Don't spam error messages for optional offsets
+        if offsetID ~= 'spinner_center_point' then
+            DualPrint('[==e ERROR: Offset '..tostring(offsetID)..' not found in registeredOffsets')
+        end
         return nil, nil
     end
     
@@ -159,18 +163,21 @@ function RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, offset
         basePosition = table.position
         baseOrientation = table.orientation
     else
-        -- For all other offsets, they are relative to spinner_center_point (not table position)
-        -- First, get the spinner center world position
+        -- For all other offsets, try to use spinner_center_point if available (roulette)
+        -- Otherwise, fall back to table position (blackjack)
         local spinnerCenterPos, spinnerCenterOri = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
-        if not spinnerCenterPos then
-            DualPrint('[==e ERROR: Failed to get spinner_center_point for chaining offset '..offsetID)
-            return nil, nil
+        if spinnerCenterPos then
+            -- Roulette: offsets are relative to spinner_center_point
+            transformedOffsetPosition = table.orientation:Transform(offsetPositionVector)
+            basePosition = spinnerCenterPos
+            baseOrientation = spinnerCenterOri
+        else
+            -- Blackjack: offsets are relative to table position directly
+            -- (spinner_center_point not registered, which is fine for blackjack)
+            transformedOffsetPosition = table.orientation:Transform(offsetPositionVector)
+            basePosition = table.position
+            baseOrientation = table.orientation
         end
-        
-        -- Rotate the offset (it's relative to spinner center in local space)
-        transformedOffsetPosition = table.orientation:Transform(offsetPositionVector)
-        basePosition = spinnerCenterPos
-        baseOrientation = spinnerCenterOri
     end
     
     -- Calculate final position

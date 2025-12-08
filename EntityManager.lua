@@ -85,10 +85,12 @@ function EntityManager.SpawnWithCodeware(pathOrID, appName, locationTable, orien
     else
         local tableCenterPoint = TableManager.GetActiveTableCenterPoint()
         if not tableCenterPoint then
-            DualPrint('[==e ERROR: SpawnWithCodeware: tableCenterPoint not available for active table')
-            return
+            -- Fallback to player position if tableCenterPoint not available (e.g., during initialization)
+            local playerPos = playerTransform:GetWorldPosition()
+            newLocation = {x=playerPos:GetX(), y=playerPos:GetY(), z=playerPos:GetZ()}
+        else
+            newLocation = {x=tableCenterPoint.x, y=tableCenterPoint.y, z=tableCenterPoint.z}
         end
-        newLocation = {x=tableCenterPoint.x, y=tableCenterPoint.y, z=tableCenterPoint.z}
     end
     entSpec.position = Vector4.new(newLocation.x, newLocation.y, newLocation.z, 1)
     if orientationTable then
