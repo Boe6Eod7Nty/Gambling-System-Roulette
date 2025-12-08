@@ -1,5 +1,5 @@
 TableManager = {
-    version = '1.1.0',
+    version = '1.1.1',
     activeTableID = nil,
     dealerEntIDs = {}, -- Track dealer entity IDs per table: dealerEntIDs[tableID] = entID
     dealerSpawned = {}, -- Track spawn state per table: dealerSpawned[tableID] = true/false
@@ -449,6 +449,13 @@ function TableManager.createSpotForTable(tableID, forcedCameraOption, gameType, 
     }
     -- Calculate all positions using relative coordinate system
     local spotPosition, spotOrientation = RelativeCoordinateCalulator.calculateRelativeCoordinate(spotID, 'spot_position')
+    
+    -- Check if spot position/orientation calculation failed
+    if not spotPosition or not spotOrientation then
+        DualPrint('[==e ERROR: Failed to calculate spot_position for table '..tostring(spotID)..'. Skipping spot creation.')
+        return
+    end
+    
     spotObj.spot_worldPosition = spotPosition
     spotObj.spot_orientation = spotOrientation:ToEulerAngles()
     
@@ -457,14 +464,18 @@ function TableManager.createSpotForTable(tableID, forcedCameraOption, gameType, 
     
     -- Calculate camera offset relative to spot position
     local cameraOffset = RelativeCoordinateCalulator.registeredOffsets['camera_position_offset']
-    local cameraOffsetVector = Vector4.new(cameraOffset.position.x, cameraOffset.position.y, cameraOffset.position.z, 0)
-    local cameraWorldPosition, _ = RelativeCoordinateCalulator.calculateFromPosition(spotPosition, spotOrientation, cameraOffsetVector)
-    spotObj.camera_worldPositionOffset = Vector4.new(
-        cameraWorldPosition.x - spotPosition.x,
-        cameraWorldPosition.y - spotPosition.y,
-        cameraWorldPosition.z - spotPosition.z,
-        1
-    )
+    if cameraOffset then
+        local cameraOffsetVector = Vector4.new(cameraOffset.position.x, cameraOffset.position.y, cameraOffset.position.z, 0)
+        local cameraWorldPosition, _ = RelativeCoordinateCalulator.calculateFromPosition(spotPosition, spotOrientation, cameraOffsetVector)
+        if cameraWorldPosition then
+            spotObj.camera_worldPositionOffset = Vector4.new(
+                cameraWorldPosition.x - spotPosition.x,
+                cameraWorldPosition.y - spotPosition.y,
+                cameraWorldPosition.z - spotPosition.z,
+                1
+            )
+        end
+    end
     
     SpotManager.AddSpot(spotObj)
 end
