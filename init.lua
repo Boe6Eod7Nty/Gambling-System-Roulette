@@ -1,5 +1,5 @@
 Roulette = {
-    version = '1.0.15',
+    version = '1.1.0',
     initVersion = '1.1.1',
     ready = false
 }
