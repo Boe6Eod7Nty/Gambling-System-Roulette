@@ -1603,6 +1603,7 @@ function RouletteMainMenu.BetValueUI()
         end,
         function()
             --print("Choice 6 used")
+            interactionUI.hideHub()
             RouletteMainMenu.showCustomBetChips = true
         end,
         function()
@@ -1706,6 +1707,7 @@ function RouletteMainMenu.BuyChipsUI()
         end,
         function()
             --print("Choice 7 used")
+            interactionUI.hideHub()
             RouletteMainMenu.showCustomBuyChips = true
         end,
         function()
@@ -1723,27 +1725,51 @@ function RouletteMainMenu.Update()
     if buttonCustomNumberPressed then
         local inputValue = tonumber(inputText)
         if RouletteMainMenu.showCustomBuyChips then
-            RouletteMainMenu.showCustomBuyChips = false
             local playerMoney = Game.GetTransactionSystem():GetItemQuantity(GetPlayer(), MarketSystem.Money())
-            if playerMoney >= inputValue and inputValue >= 0 and inputValue <= 10000000 then
-                interactionUI.hideHub()
+            if inputValue and playerMoney >= inputValue and inputValue > 0 and inputValue <= 10000000 then
+                RouletteMainMenu.showCustomBuyChips = false
                 ChipPlayerPile.ChangePlayerChipValue(inputValue)
                 Game.AddToInventory("Items.money", -(inputValue))
                 Game.GetPlayer():PlaySoundEvent("q303_06a_roulette_chips_stack")
                 RouletteMainMenu.MainMenuUI()
+            elseif inputValue == 0 then
+                -- User submitted 0 to cancel/exit
+                RouletteMainMenu.showCustomBuyChips = false
+                RouletteMainMenu.MainMenuUI()
+            else
+                -- Invalid input - reset flag and show error, restore UI
+                RouletteMainMenu.showCustomBuyChips = false
+                inputText = ""
+                RouletteMainMenu.MainMenuUI()
             end
         elseif RouletteMainMenu.showCustomBetChips then
-            RouletteMainMenu.showCustomBetChips = false
             local playerPile = ChipPlayerPile.GetPlayerPile()
-            if playerPile.value >= inputValue and inputValue >= 0 and inputValue <= 10000000 then
-                interactionUI.hideHub()
+            if inputValue and playerPile.value >= inputValue and inputValue > 0 and inputValue <= 10000000 then
+                RouletteMainMenu.showCustomBetChips = false
                 PlaceBet(inputValue)
+                RouletteMainMenu.MainMenuUI()
+            elseif inputValue == 0 then
+                -- User submitted 0 to cancel/exit
+                RouletteMainMenu.showCustomBetChips = false
+                RouletteMainMenu.MainMenuUI()
+            else
+                -- Invalid input - reset flag and restore UI
+                RouletteMainMenu.showCustomBetChips = false
+                inputText = ""
                 RouletteMainMenu.MainMenuUI()
             end
         else
-            DualPrint('=t Error: button pressed, but no showCustomChips flag set. code 4509')
+            DualPrint('=t Warning: button pressed, but no showCustomChips flag set. Fixing... code 4509')
+            -- Reset state to prevent getting stuck
+            buttonCustomNumberPressed = false
+            inputText = ""
+            RouletteMainMenu.showCustomBuyChips = false
+            RouletteMainMenu.showCustomBetChips = false
+            -- Try to restore UI
+            RouletteMainMenu.MainMenuUI()
         end
         buttonCustomNumberPressed = false
+        inputText = ""
     end
 end
 
