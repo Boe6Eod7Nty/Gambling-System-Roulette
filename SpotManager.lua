@@ -1,5 +1,5 @@
 SpotManager = {
-    version = '1.1.17',
+    version = '1.1.18',
     spots = {},
     activeSpotID = nil, -- Tracks which spot the player is currently in (nil = not in any spot)
     -- Performance optimization variables
@@ -309,16 +309,14 @@ local function mappinUIUpdate(spotTable)
             spotTable.spotObject.mappin_visible = true
             local mappin_data = MappinData.new({ mappinType = 'Mappins.DefaultStaticMappin', variant = spotObj.mappin_variant, visibleThroughWalls = spotTable.spotObject.mappin_visibleThroughWalls })
             spotTable.spotObject.mappin_gameMappinID = Game.GetMappinSystem():RegisterMappin(mappin_data, spotTable.spotObject.mappin_worldPosition)
+            -- Only set HUD to visible state when mappin appears (don't toggle it off when it disappears)
             handleHUDToggle(spotObj, true)
         else
             spotTable.spotObject.mappin_visible = false
             Game.GetMappinSystem():UnregisterMappin(spotTable.spotObject.mappin_gameMappinID)
             spotTable.spotObject.mappin_gameMappinID = nil
-            handleHUDToggle(spotObj, false)
+            -- Don't toggle HUD off when mappin disappears - leave UI visible
         end
-    elseif shouldShowIcon == false and currentlyShowingIcon == false then
-        -- ensure HUD state follows icon visibility when conditionally hidden
-        handleHUDToggle(spotObj, false)
     end
 end
 
