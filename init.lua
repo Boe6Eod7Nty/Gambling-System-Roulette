@@ -1,6 +1,6 @@
 Roulette = {
     version = '1.1.1',
-    initVersion = '1.1.1',
+    initVersion = '1.1.2',
     ready = false
 }
 --===================
@@ -346,8 +346,12 @@ local callback40x = function()
     end
 
     if (cronCount % 4 == 0) then --10x per second
-        ChipPlayerPile.QueuedChipAddition()
+        -- Process subtraction first to avoid conflicts
         ChipPlayerPile.QueuedChipSubtraction()
+        -- Only process addition if subtraction queue is empty
+        if next(ChipPlayerPile.GetPileSubtractionQueue()) == nil then
+            ChipPlayerPile.QueuedChipAddition()
+        end
         currentlyRepeatingBets = ChipBetPiles.QueuedBetChipAddition(currentlyRepeatingBets)
         ChipBetPiles.RemoveBetStack()
     end
