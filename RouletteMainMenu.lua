@@ -1,5 +1,5 @@
 RouletteMainMenu = {
-    version = '1.0.0',
+    version = '1.0.1',
     showCustomBuyChips = false,
     showCustomBetChips = false
 }
@@ -99,11 +99,11 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
     end
 
     -- setup UI
-    local choiceCount = 6
+    local choiceCount = 5
     local hubName = GameLocale.Text("Roulette")
-    local choicesStrings = {GameLocale.Text("Repeat Previous Bets"), GameLocale.Text("Place Bets"), GameLocale.Text("Spin Roulette Wheel"), GameLocale.Text("Buy Chips"), GameLocale.Text("Settings"), GameLocale.Text("Cash Out")}
-    local choicesIcons = {"ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.TakeControlIcon","ChoiceCaptionParts.OpenVendorIcon","ChoiceCaptionParts.ControlPanelIcon","ChoiceCaptionParts.GetUpIcon"}
-    local choicesFonts = {repeatFont,placeFont,gameinteractionsChoiceType.Selected,buyFont,gameinteractionsChoiceType.AlreadyRead,cashOutFont}
+    local choicesStrings = {GameLocale.Text("Repeat Previous Bets"), GameLocale.Text("Place Bets"), GameLocale.Text("Spin Roulette Wheel"), GameLocale.Text("Buy Chips"), GameLocale.Text("Cash Out")}
+    local choicesIcons = {"ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.DistractIcon","ChoiceCaptionParts.TakeControlIcon","ChoiceCaptionParts.OpenVendorIcon","ChoiceCaptionParts.GetUpIcon"}
+    local choicesFonts = {repeatFont,placeFont,gameinteractionsChoiceType.Selected,buyFont,cashOutFont}
     local choiceActions = {
         function() --"Repeat Bets"
             --DualPrint("Choice 1 used")
@@ -132,9 +132,6 @@ function RouletteMainMenu.MainMenuUI() -- original function code by keanuwheeze
                 interactionUI.hideHub()
                 RouletteMainMenu.BuyChipsUI()
             end
-        end,
-        function() --"Settings"
-            --DualPrint("Choice 5 used")
         end,
         function() --"Cash Out"
             --DualPrint("Choice 6 used")
