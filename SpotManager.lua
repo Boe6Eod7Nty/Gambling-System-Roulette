@@ -1,14 +1,19 @@
 SpotManager = {
-    version = '1.1.16',
+    version = '1.1.17',
     spots = {},
-    activeCam = nil,
-    forcedCam = false,
     activeSpotID = nil, -- Tracks which spot the player is currently in (nil = not in any spot)
     -- Performance optimization variables
     uiUpdateTimer = nil,
     playerCacheTimer = nil,
     cachedPlayer = nil,
-    cachedPlayerPosition = nil
+    cachedPlayerPosition = nil,
+    -- Callback system for external mods to hook into spot events
+    callbacks = {
+        onSpotEnter = {}, -- Array of functions: function(spotID, spotObject)
+        onSpotEnterAfterAnimation = {}, -- Array of functions: function(spotID, spotObject)
+        onSpotExit = {}, -- Array of functions: function(spotID, spotObject)
+        onSpotExitAfterAnimation = {} -- Array of functions: function(spotID, spotObject)
+    }
 }
 --===================
 --CODE BY Boe6
@@ -171,25 +176,7 @@ local function animateEnteringSpot(spotObject) --Triggers workspot animation
     end)
 end
 
----Move player camera to forced position, typically above table
----@param enable boolean to enable, or disable the forced camera perspective
----@param spotObject? table spot's animation object
-local function setForcedCamera(enable, spotObject)
-    SpotManager.forcedCam = enable
-    if enable then
-        local camera = GetPlayer():GetFPPCameraComponent()
-        local quatOri = spotObject.camera_OrientationOffset:ToQuat()
-        if ImmersiveFirstPersonInstalled then
-            StatusEffectHelper.ApplyStatusEffect(GetPlayer(), "GameplayRestriction.NoCameraControl")
-        end
-        camera:SetLocalTransform(spotObject.camera_worldPositionOffset, quatOri) --default settings
-    else--reset to normal camera control
-        local camera = GetPlayer():GetFPPCameraComponent()
-        camera:SetLocalPosition(Vector4.new(0, 0, 0, 1))
-        camera:SetLocalOrientation(EulerAngles.new(0, 0, 0):ToQuat())
-        StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCameraControl")
-    end
-end
+-- Camera management removed - moved to blackjack init.lua
 
 --- Modify existing spot data
 ---@param spotID string spotID unique; example 'hooh'
@@ -215,22 +202,7 @@ local function exitSpotTeleport(spotObj)
     Game.GetWorkspotSystem():SendFastExitSignal(player)
 end
 
-local function updateForcedCamera()
-    if SpotManager.forcedCam and SpotManager.activeCam ~= nil then --fixes the camera being reset by workspot animation
-        local spot = SpotManager.spots[SpotManager.activeCam]
-        if spot.spotObject.camera_useForcedCamInWorkspot then
-            local camera = GetPlayer():GetFPPCameraComponent()
-            local o = camera:GetLocalOrientation():ToEulerAngles()
-            local camRotation = spot.spotObject.camera_OrientationOffset
-            local isCorrectOrientation = math.abs(o.pitch - camRotation.pitch) < 0.0001 and math.abs(o.yaw - camRotation.yaw) < 0.0001
-            if not isCorrectOrientation then
-                setForcedCamera(true, spot.spotObject)
-            end
-        end
-    else
-        StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCameraControl") --insurance/safety
-    end
-end
+-- Camera update removed - moved to blackjack init.lua
 
 local function interactionUIUpdate(spotTable)
     local spotObj = spotTable.spotObject
@@ -354,22 +326,32 @@ end
 ---@param spotObject table spots information object
 function TriggeredSpot(spotObject)
     animateEnteringSpot(spotObject)
+    SpotManager.activeSpotID = spotObject.spot_id
+    
+    -- Call spot's own callback
     spotObject.callback_OnSpotEnter()
-    if ImmersiveFirstPersonInstalled then
-        --disables camera control. User movement input + Immersive First Person causes visual bug
-        StatusEffectHelper.ApplyStatusEffect(GetPlayer(), "GameplayRestriction.NoCameraControl")
+    
+    -- Call registered callbacks
+    for _, callback in ipairs(SpotManager.callbacks.onSpotEnter) do
+        callback(spotObject.spot_id, spotObject)
     end
+    
     local enterCallback = function()
         if spotObject.camera_showElectroshockEffect then
             StatusEffectHelper.ApplyStatusEffect(GetPlayer(), "BaseStatusEffect.FatalElectrocutedParticleStatus")
         end
-        SpotManager.activeCam = spotObject.spot_id
-        if spotObject.camera_useForcedCamInWorkspot then
-            setForcedCamera(true, spotObject)
-        end
+        -- Camera management moved to callbacks in init.lua
     end
     Cron.After(spotObject.animation_defaultEnterTime, enterCallback)
-    Cron.After(spotObject.callback_OnSpotEnterAfterAnimationDelayTime, spotObject.callback_OnSpotEnterAfterAnimation)
+    
+    -- Call spot's own callback after animation delay
+    Cron.After(spotObject.callback_OnSpotEnterAfterAnimationDelayTime, function()
+        spotObject.callback_OnSpotEnterAfterAnimation()
+        -- Call registered callbacks
+        for _, callback in ipairs(SpotManager.callbacks.onSpotEnterAfterAnimation) do
+            callback(spotObject.spot_id, spotObject)
+        end
+    end)
 end
 
 --Register Events (passed from parent)
@@ -450,7 +432,7 @@ function SpotManager.init() --runs on game launch
 
 end
 function SpotManager.update(dt) --runs every frame
-    updateForcedCamera()
+    -- Camera updates moved to blackjack init.lua
 end
 
 --Methods
@@ -458,16 +440,32 @@ end
 --- Animate player leaving spot
 --- @param id any identification id
 function SpotManager.ExitSpot(id) --Exit spot
-    setForcedCamera(false) --disable forced camera perspective
-    SpotManager.activeCam = nil
     local spot = SpotManager.spots[id]
     local spotObj = spot.spotObject
+    
+    -- Call registered callbacks before exit
+    for _, callback in ipairs(SpotManager.callbacks.onSpotExit) do
+        callback(id, spotObj)
+    end
+    
+    -- Call spot's own callback
+    spot.spotObject.callback_OnSpotExit()
+    
     SpotManager.ChangeAnimation(spot.spotObject.exit_animationName, spot.spotObject.callback_OnSpotExitAfterAnimationDelayTime + 3, spot.spotObject.animation_defaultName)
 
-    spot.spotObject.callback_OnSpotExit()
     Cron.After(spotObj.callback_OnSpotExitAfterAnimationDelayTime, function() -- Wait for animation to finish
         exitSpotTeleport(spotObj)
+        
+        -- Call spot's own callback
         spot.spotObject.callback_OnSpotExitAfterAnimation()
+        
+        -- Call registered callbacks
+        for _, callback in ipairs(SpotManager.callbacks.onSpotExitAfterAnimation) do
+            callback(id, spotObj)
+        end
+        
+        -- Clear active spot after all callbacks
+        SpotManager.activeSpotID = nil
     end)
 end
 
@@ -537,6 +535,40 @@ end
 ---Clear the player from the current spot (same as SetPlayerInSpot(nil))
 function SpotManager.ClearPlayerInSpot()
     SpotManager.activeSpotID = nil
+end
+
+---Register a callback for when a player enters a spot
+---@param callback function function(spotID, spotObject) - called when player enters a spot
+function SpotManager.RegisterOnSpotEnter(callback)
+    table.insert(SpotManager.callbacks.onSpotEnter, callback)
+end
+
+---Register a callback for when a player enters a spot (after animation)
+---@param callback function function(spotID, spotObject) - called when player enters a spot after animation
+function SpotManager.RegisterOnSpotEnterAfterAnimation(callback)
+    table.insert(SpotManager.callbacks.onSpotEnterAfterAnimation, callback)
+end
+
+---Register a callback for when a player exits a spot
+---@param callback function function(spotID, spotObject) - called when player exits a spot
+function SpotManager.RegisterOnSpotExit(callback)
+    table.insert(SpotManager.callbacks.onSpotExit, callback)
+end
+
+---Register a callback for when a player exits a spot (after animation)
+---@param callback function function(spotID, spotObject) - called when player exits a spot after animation
+function SpotManager.RegisterOnSpotExitAfterAnimation(callback)
+    table.insert(SpotManager.callbacks.onSpotExitAfterAnimation, callback)
+end
+
+---Get the currently active spot object (if player is in a spot)
+---@return table|nil spot object or nil if not in any spot
+function SpotManager.GetActiveSpotObject()
+    if not SpotManager.activeSpotID then
+        return nil
+    end
+    local spot = SpotManager.spots[SpotManager.activeSpotID]
+    return spot and spot.spotObject or nil
 end
 
 return SpotManager
