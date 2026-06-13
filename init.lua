@@ -874,8 +874,13 @@ function DespawnTable() --despawns ents and resets script variables
     StatusEffectHelper.RemoveStatusEffect(GetPlayer(), "GameplayRestriction.NoCombat") -- Enable weapon draw
     interactionUI.hideHub()
 
+    areaInitialized = false -- Clear the table-loaded flag synchronously so the next location check re-runs InitTable().
+    if activeTableID then
+        TableManager.setTableLoaded(activeTableID, false)
+        TableManager.SetActiveTable(nil)
+    end
+
     local callbackResetVariables = function() --force reset almost every variable. save/load bugs are a PITA.
-        areaInitialized = false
         gameLoadDelayCount = 0
         ChipPlayerPile.Clear()
         ChipBetPiles.Clear()
