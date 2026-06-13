@@ -99,6 +99,19 @@ local function updatePlayerCache()
     end
 end
 
+-- Public accessors for the shared player cache.
+-- SpotManager is the single source of truth for the per-frame player position,
+-- so other modules read these instead of calling GetWorldPosition() themselves.
+---@return userdata|nil cached player object
+function SpotManager.GetCachedPlayer()
+    return SpotManager.cachedPlayer
+end
+
+---@return Vector4|nil cached player world position
+function SpotManager.GetCachedPlayerPosition()
+    return SpotManager.cachedPlayerPosition
+end
+
 local function toggleHUD(state)
     local player = GetPlayer()
     if not player then

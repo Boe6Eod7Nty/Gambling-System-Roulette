@@ -1,6 +1,6 @@
 Roulette = {
-    version = '1.1.2',
-    initVersion = '1.1.2',
+    version = '1.1.3',
+    initVersion = '1.1.3',
     ready = false
 }
 --===================
@@ -71,10 +71,9 @@ local gameLoadDelayCount = 0
 local tableLoadDistance = 20
 local tableUnloadDistance = 100
 local chipHeight = 0.0035
--- Cached player position (updated 2-3 times per second for performance)
 local cachedPlayerPosition = nil
 local cachedPlayerPositionUpdateCounter = 0
-local PLAYER_POSITION_UPDATE_INTERVAL = 15 -- Update every 15 callbacks (~2.67 times per second at 40 callbacks/sec)
+local PLAYER_POSITION_UPDATE_INTERVAL = 15 -- Sample every 15 callbacks (~2.67 times per second at 40 callbacks/sec)
 local userState = { --used by GameSession.lua
     consoleUses = 0 -- Initial state
 }
@@ -267,13 +266,12 @@ local callback40x = function()
         SpotManager.ClearPlayerInSpot()
     end
     
-    -- Update cached player position 2-3 times per second (every 15 callbacks)
+    -- Sample the shared player position from SpotManager's cache
     cachedPlayerPositionUpdateCounter = cachedPlayerPositionUpdateCounter + 1
     local playerPositionUpdated = false
     if cachedPlayerPositionUpdateCounter >= PLAYER_POSITION_UPDATE_INTERVAL then
-        local player = GetPlayer()
-        if player then
-            cachedPlayerPosition = player:GetWorldPosition()
+        cachedPlayerPosition = SpotManager.GetCachedPlayerPosition()
+        if cachedPlayerPosition then
             cachedPlayerPositionUpdateCounter = 0
             playerPositionUpdated = true
         end
@@ -605,12 +603,8 @@ registerForEvent( "onInit", function() --runs on file load
     inGame = false
     GameUI.OnSessionStart(function()
         inGame = true
-        -- Initialize cached player position on session start
-        local player = GetPlayer()
-        if player then
-            cachedPlayerPosition = player:GetWorldPosition()
-            cachedPlayerPositionUpdateCounter = 0
-        end
+        cachedPlayerPosition = nil
+        cachedPlayerPositionUpdateCounter = PLAYER_POSITION_UPDATE_INTERVAL
     end)
     GameUI.OnSessionEnd(function()
         inGame = false
