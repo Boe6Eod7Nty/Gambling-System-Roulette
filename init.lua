@@ -277,47 +277,24 @@ local callback40x = function()
         end
     end
     
-    -- Only check table loading/unloading when player position updates (2-3 times per second)
+    -- Table proximity (only when position updates, 2-3 times per second).
     if playerPositionUpdated and gameLoadDelayCount >= gameLoadDelayTime then
-        -- Check all registered tables for nearby loading
-        local tablesChecked = 0
-        local tablesInitialized = 0
-        for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
-            tablesChecked = tablesChecked + 1
-            
-            local isNearby = TableManager.loadTableIfNearby(tableID, tableLoadDistance, cachedPlayerPosition)
-            
-            if isNearby then
-                local isLoaded = TableManager.isTableLoaded(tableID)
-                
-                if not isLoaded then
-                    -- Table is nearby but not initialized yet
-                    TableManager.setTableLoaded(tableID, true)
-                    InitTable(tableID)
-                    tablesInitialized = tablesInitialized + 1
-                    -- Continue checking other tables (removed break to allow multiple tables)
-                end
-            end
-        end
-        
-        if tablesInitialized > 0 then
-            areaInitialized = true -- Set flag after at least one table is initialized
-        end
-        
-        if tablesChecked == 0 then
+        if next(RelativeCoordinateCalulator.registeredTables) == nil then
             DualPrint('[==e ERROR: No registered tables found! RelativeCoordinateCalulator.registeredTables is empty.')
         end
-    end
-    
-    -- Check if player moved too far from active table (only when position updates)
-    if playerPositionUpdated and areaInitialized then
-        local activeTableID = TableManager.GetActiveTable()
-        if activeTableID then
-            -- Check if player moved too far from active table
-            if TableManager.unloadTableIfFar(activeTableID, tableUnloadDistance, cachedPlayerPosition) then
-                DespawnTable()
-            end
-        end
+
+        TableManager.updateProximityZones(cachedPlayerPosition, tableLoadDistance, tableUnloadDistance,
+            function(tableID) -- onEnter
+                InitTable(tableID)
+                areaInitialized = true
+            end,
+            function(tableID) -- onExit
+                if tableID == TableManager.GetActiveTable() then
+                    DespawnTable()
+                else
+                    TableManager.cleanupTableEntities(tableID)
+                end
+            end)
     end
 
     --MoveEnt('chips1', {x=0, y=0.01, z=0})

@@ -1,5 +1,5 @@
 TableManager = {
-    version = '1.1.1',
+    version = '1.1.2',
     activeTableID = nil,
     dealerEntIDs = {}, -- Track dealer entity IDs per table: dealerEntIDs[tableID] = entID
     dealerSpawned = {}, -- Track spawn state per table: dealerSpawned[tableID] = true/false
@@ -486,11 +486,6 @@ end
 -- Phase 2.3: Table Loading/Unloading
 --===================
 
---- Checks if player is nearby a table and loads it if within distance
----@param tableID string table ID to check
----@param distance number distance threshold to load table (default: 20)
----@param playerPosition Vector4|nil player position (if nil, will be retrieved)
----@return boolean true if table was loaded or already loaded, false otherwise
 ---Counts the number of registered tables (for debugging)
 ---@return number count of registered tables
 function TableManager.countRegisteredTables()
@@ -501,95 +496,58 @@ function TableManager.countRegisteredTables()
     return count
 end
 
-function TableManager.loadTableIfNearby(tableID, distance, playerPosition)
-    distance = distance or 20
-    
-    -- Check if already loaded
-    if TableManager.tableLoaded[tableID] then
-        return true
+--- Resolves the world-space center used for table proximity checks.
+---@param tableID string table ID
+---@return table|nil center {x, y, z}, or nil if the table can't be resolved
+function TableManager.getProximityCenter(tableID)
+    local center, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
+    if center then
+        return center
     end
-    
-    -- Get player position if not provided
-    if not playerPosition then
-        local player = GetPlayer()
-        if not player then
-            DualPrint('[==e ERROR: loadTableIfNearby: GetPlayer() returned nil')
-            return false
-        end
-        playerPosition = player:GetWorldPosition()
+    local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
+    if tableData then
+        return tableData.position
     end
-    
-    -- Get table center position
-    local tableCenterPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
-    if not tableCenterPos then
-        -- Fallback to table position
-        local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
-        if not tableData then
-            DualPrint('[==e ERROR: loadTableIfNearby: Table '..tostring(tableID)..' not found in registeredTables')
-            return false
-        end
-        tableCenterPos = tableData.position
-    end
-    
-    -- Calculate distance (2D distance, ignoring Z)
-    local dx = playerPosition.x - tableCenterPos.x
-    local dy = playerPosition.y - tableCenterPos.y
-    local distanceSquared = dx * dx + dy * dy
-    
-    if distanceSquared < (distance * distance) then
-        -- NOTE: Do NOT set tableLoaded here - that should be done by the caller after InitTable is called
-        return true
-    end
-    
-    return false
+    return nil
 end
 
---- Checks if player is far from a table and unloads it if beyond distance
----@param tableID string table ID to check
----@param distance number distance threshold to unload table (default: 100)
----@param playerPosition Vector4|nil player position (if nil, will be retrieved)
----@return boolean true if table was unloaded, false otherwise
-function TableManager.unloadTableIfFar(tableID, distance, playerPosition)
-    distance = distance or 100
-    
-    -- Check if not loaded
-    if not TableManager.tableLoaded[tableID] then
-        return false
-    end
-    
-    -- Get player position if not provided
+--- Zone-style proximity pass over all registered tables.
+---@param playerPosition Vector4 player world position
+---@param loadDistance number enter radius in meters
+---@param unloadDistance number exit radius in meters (should be larger than loadDistance)
+---@param onEnter fun(tableID:string)|nil called when a table crosses into load range
+---@param onExit fun(tableID:string)|nil called when a table crosses out of unload range
+function TableManager.updateProximityZones(playerPosition, loadDistance, unloadDistance, onEnter, onExit)
     if not playerPosition then
-        local player = GetPlayer()
-        if not player then
-            return false
+        return
+    end
+
+    local loadDistSq = loadDistance * loadDistance
+    local unloadDistSq = unloadDistance * unloadDistance
+
+    for tableID, _ in pairs(RelativeCoordinateCalulator.registeredTables) do
+        local centerPos = TableManager.getProximityCenter(tableID)
+        if centerPos then
+            local dx = playerPosition.x - centerPos.x
+            local dy = playerPosition.y - centerPos.y
+            local distSq = dx * dx + dy * dy
+            local isInside = TableManager.tableLoaded[tableID] == true
+
+            if not isInside and distSq < loadDistSq then
+                -- Entering load range: mark loaded and fire the enter callback.
+                TableManager.tableLoaded[tableID] = true
+                if onEnter then
+                    onEnter(tableID)
+                end
+            elseif isInside and distSq > unloadDistSq then
+                -- Leaving unload range: clear the flag and fire the exit callback.
+                TableManager.tableLoaded[tableID] = false
+                if onExit then
+                    onExit(tableID)
+                end
+            end
         end
-        playerPosition = player:GetWorldPosition()
     end
-    
-    -- Get table center position
-    local tableCenterPos, _ = RelativeCoordinateCalulator.calculateRelativeCoordinate(tableID, 'spinner_center_point')
-    if not tableCenterPos then
-        -- Fallback to table position
-        local tableData = RelativeCoordinateCalulator.registeredTables[tableID]
-        if not tableData then
-            return false
-        end
-        tableCenterPos = tableData.position
-    end
-    
-    -- Calculate distance (2D distance, ignoring Z)
-    local dx = playerPosition.x - tableCenterPos.x
-    local dy = playerPosition.y - tableCenterPos.y
-    local distanceSquared = dx * dx + dy * dy
-    
-    if distanceSquared > (distance * distance) then
-        TableManager.tableLoaded[tableID] = false
-        -- Clean up entities when unloading
-        TableManager.cleanupTableEntities(tableID)
-        return true
-    end
-    
-    return false
 end
 
 --- Checks if a table is currently loaded
